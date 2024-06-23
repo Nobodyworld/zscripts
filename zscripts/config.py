@@ -5,7 +5,8 @@ from pathlib import Path
 SKIP_DIRS = ['zscripts', 'zbuild', 'migrations', 'static', 'yayay',
               'asgi', 'wsgi', 'migrations', 'staticfiles', 'logs',
               'media', '__pycache__', 'build', 'dist', 'zscripts',
-              'venv', 'env', 'envs']
+              'venv', 'env', 'envs', 'node_modules', 'public', 'assets',
+              '.git.txt']
 
 # Define the file types to look for and their corresponding output files
 FILE_TYPES = {

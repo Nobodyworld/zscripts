@@ -7,14 +7,10 @@ def compile_readme():
     readme_dir = 'zscripts/zreadme'
 
     # List the build order as a list of filenames
+    # Add more as needed to include additional sections
     build_order = [
         '0-Overview.txt',
-        '1-Core.txt',
-        '2-Common.txt',
-        '3-Models.txt',
-        '4-Plan.txt',
     ]
-
 
     # Initialize the compiled content as an empty string
     compiled_content = ''

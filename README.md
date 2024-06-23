@@ -19,6 +19,7 @@ The main directory containing all scripts and configuration files for the projec
 #### all Directory
 
 Contains scripts for handling multiple file types:
+
 - **all_both.py:** Handles both Python and HTML files.
 - **all_cssss.py:** Processes CSS files.
 - **all_htmlll.py:** Processes HTML files.
@@ -29,6 +30,7 @@ Contains scripts for handling multiple file types:
 #### all_single Directory
 
 Contains scripts for handling single file types:
+
 - **single.py:** Handles a single operation.
 - **single_css.py:** Processes a single CSS file.
 - **single_html.py:** Processes a single HTML file.
@@ -38,12 +40,14 @@ Contains scripts for handling single file types:
 #### by_file Directory
 
 Contains scripts for processing files by name:
+
 - **by_file_name.py:** Processes files based on their name.
 - **zby_file_name_analysis.py:** Analyzes files by name.
 
 #### create Directory
 
 Contains scripts for creating and managing the file tree:
+
 - **create_tree.py:** Creates the file tree structure.
 
 #### logs Directory
@@ -53,6 +57,7 @@ The directory where all log files are stored. This directory is further organize
 #### make Directory
 
 Contains scripts for various build and analysis tasks:
+
 - **analysis.py:** Performs analysis on the project files.
 - **build.py:** Builds the project structure.
 - **consoli.py:** Consolidates files for easier management.
@@ -60,6 +65,7 @@ Contains scripts for various build and analysis tasks:
 #### todo Directory
 
 Contains scripts and files related to project tasks and todos:
+
 - **log.txt:** Log file for tasks.
 - **todo.md:** Markdown file listing todos.
 - **todo.py:** Script for managing tasks.
@@ -67,6 +73,7 @@ Contains scripts and files related to project tasks and todos:
 #### zreadme Directory
 
 Contains scripts and files for generating the README documentation:
+
 - **0-Overview.txt:** Overview file for the project.
 - **readme_build.py:** Script for building the README file.
 
@@ -75,6 +82,7 @@ Contains scripts and files for generating the README documentation:
 ### config.py
 
 The `config.py` file contains essential configurations for the project:
+
 - **SKIP_DIRS:** List of directories to skip during file operations.
 - **FILE_TYPES:** Dictionary mapping file names to their respective log categories.
 - **Directories:** Various directories defined for logging and output purposes.
@@ -82,6 +90,7 @@ The `config.py` file contains essential configurations for the project:
 ### utils.py
 
 The `utils.py` file includes utility functions:
+
 - **load_gitignore_patterns:** Loads ignore patterns from a `.gitignore` file.
 - **file_matches_any_pattern:** Checks if a file path matches any ignore pattern.
 - **create_app_logs:** Creates logs for app directories.
@@ -106,6 +115,7 @@ Builds and updates the main `README.md` file based on the project's current stru
 To run the scripts, navigate to the `zscripts` directory and execute the desired script using Python. Ensure that all dependencies are installed and the configurations are correctly set.
 
 For example, to create logs for all Python files in the project:
+
 ```sh
 python zscripts/all/all_pyth.py
 ```
