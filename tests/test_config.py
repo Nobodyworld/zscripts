@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from pathlib import Path
 
 import pytest
@@ -11,11 +12,11 @@ def test_config_loading_returns_expected_types() -> None:
     config = get_config()
     assert isinstance(config, Config)
     assert isinstance(config.skip, tuple)
-    assert isinstance(config.file_types, dict)
+    assert isinstance(config.file_types, Mapping)
     assert isinstance(config.user_ignore_patterns, frozenset)
-    assert isinstance(config.directories, dict)
-    assert isinstance(config.collection_logs, dict)
-    assert isinstance(config.single_targets, dict)
+    assert isinstance(config.directories, Mapping)
+    assert isinstance(config.collection_logs, Mapping)
+    assert isinstance(config.single_targets, Mapping)
 
 
 def test_load_config_merges_with_defaults(tmp_path: Path) -> None:
@@ -70,3 +71,24 @@ def test_file_group_resolver_returns_copy() -> None:
     resolver = get_file_group_resolver()
     resolver["new.py"] = "new"
     assert "new.py" not in get_config().file_types
+
+
+def test_config_mappings_are_immutable() -> None:
+    config = get_config()
+
+    with pytest.raises(TypeError):
+        config.file_types["sample.py"] = "sample"
+
+    with pytest.raises(TypeError):
+        config.directories["extra"] = "value"
+
+    with pytest.raises(TypeError):
+        config.collection_logs["alt"] = "override"
+
+
+def test_to_dict_returns_mutable_copies() -> None:
+    config = get_config()
+    serialized = config.to_dict()
+
+    serialized["directories"]["new_dir"] = "value"
+    assert "new_dir" not in config.directories

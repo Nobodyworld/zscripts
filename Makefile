@@ -1,18 +1,18 @@
 .PHONY: fmt lint type test security check
 
 fmt:
-ruff format .
+	ruff format .
 
 lint:
-ruff check .
+	ruff check .
 
 type:
-mypy .
+	mypy .
 
 security:
-bandit -q -r zscripts sample_project
+	bandit -q -r zscripts sample_project
 
 test:
-pytest
+	pytest
 
 check: fmt lint type security test
