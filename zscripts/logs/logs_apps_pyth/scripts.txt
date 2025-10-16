@@ -1,3 +1,6 @@
+# scripts
+
+# scripts/manage_db.py
 """Utility script for managing the sample in-memory database."""
 
 from __future__ import annotations
@@ -204,3 +207,5 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+

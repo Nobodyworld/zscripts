@@ -2,22 +2,14 @@
 
 from __future__ import annotations
 
-import sys
-from pathlib import Path
+from zscripts.cli import main as cli_main
 
 
 def main() -> int:
     """Delegate to the shared CLI for the ``single_js`` group."""
 
-    script_dir = Path(__file__).resolve().parent
-    project_root = script_dir.parent.parent
-    if str(project_root) not in sys.path:
-        sys.path.insert(0, str(project_root))
-
-    from zscripts.cli import main as cli_main
-
-    return cli_main(['consolidate', '--types', 'js'])
+    return cli_main(["consolidate", "--types", "js"])
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     raise SystemExit(main())
