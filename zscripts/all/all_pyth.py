@@ -16,7 +16,7 @@ def main() -> int:
 
     from zscripts.cli import main as cli_main
 
-    return cli_main(['--group', 'apps_python'])
+    return cli_main(['collect', '--types', 'python'])
 
 
 if __name__ == '__main__':
