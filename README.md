@@ -68,6 +68,7 @@ usage: python -m zscripts [-h] [--config CONFIG] [--project-root PROJECT_ROOT] {
 ```
 
 ### `collect`
+
 Generate per-directory logs for one or more stacks. The command accepts a
 comma-separated list of stacks (`python`, `html`, `css`, `js`, `python_html`, or
 `all`).
@@ -79,6 +80,7 @@ python -m zscripts collect --types python,js --project-root sample_project
 Logs are written to the directories declared in `collection_logs`.
 
 ### `consolidate`
+
 Create a single file that merges all sources for the requested stack.
 
 ```bash
@@ -89,11 +91,13 @@ When no output file is supplied, the command falls back to the
 `single_targets` configuration entry.
 
 ### `tree`
+
 Snapshot the repository structure and inline the content of tracked files.
 
 ```bash
 python -m zscripts tree --project-root sample_project --output /tmp/tree.txt
 ```
+
 - **SKIP_DIRS:** List of directories to skip during file operations.
 - **DEFAULT_FILE_GROUPS:** Mapping of log categories to filename, glob, or extension patterns, merged with optional overrides from `zscripts.config.yaml` at the project root.
 - **get_file_group_resolver():** Helper that resolves configured patterns for fast lookups throughout the logging utilities.
