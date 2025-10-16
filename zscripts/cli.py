@@ -3,14 +3,13 @@
 from __future__ import annotations
 
 import argparse
-import logging
 from pathlib import Path
-from typing import Iterable, List, Sequence
+from typing import Iterable, Sequence
 
 from .config import (
-    LOG_GROUPS,
+    DEFAULT_CONFIG_PATH,
     SCRIPT_DIR,
-    SKIP_DIRS,
+    load_config,
 )
 from .utils import (
     consolidate_files,
@@ -53,8 +52,10 @@ def _parse_type_list(raw: str, *, allowed: Iterable[str]) -> Sequence[str]:
 
 
 def _build_log_paths(config: dict[str, object]) -> dict[str, Path]:
-    directories = config.get("directories", {}) or {}
-    collection_logs = config.get("collection_logs", {}) or {}
+    directories = config.get("directories", {}) or {}  # type: ignore
+    collection_logs = config.get("collection_logs", {}) or {}  # type: ignore
+    directories = dict(directories)  # type: ignore
+    collection_logs = dict(collection_logs)  # type: ignore
     log_root = SCRIPT_DIR / str(directories.get("log_root", "logs"))
     return {
         "all": log_root / str(collection_logs.get("all", "logs_apps_all")),
@@ -70,7 +71,8 @@ def _build_log_paths(config: dict[str, object]) -> dict[str, Path]:
 def _build_single_targets(config: dict[str, object]) -> dict[str, Path]:
     log_paths = _build_log_paths(config)
     single_dir = log_paths["single"]
-    targets = config.get("single_targets", {}) or {}
+    targets = config.get("single_targets", {}) or {}  # type: ignore
+    targets = dict(targets)  # type: ignore
     return {
         "python": single_dir / str(targets.get("python", "capture_all_pyth.txt")),
         "html": single_dir / str(targets.get("html", "capture_all_html.txt")),
@@ -82,8 +84,9 @@ def _build_single_targets(config: dict[str, object]) -> dict[str, Path]:
 
 
 def _augment_ignore_patterns(project_root: Path, config: dict[str, object]) -> list[str]:
-    ignore_patterns = load_gitignore_patterns(project_root)
-    skip_values = config.get("skip", []) or []
+    ignore_patterns = list(load_gitignore_patterns(project_root))
+    skip_values = config.get("skip", []) or []  # type: ignore
+    skip_values = list(skip_values)  # type: ignore
     for skip in skip_values:
         ignore_patterns.append(skip)
         ignore_patterns.append(f"{skip}/")

@@ -33,6 +33,7 @@ _RAW_CONFIG = _load_raw_config()
 
 SKIP_DIRS = list(_RAW_CONFIG.get("skip", []))
 FILE_TYPES = dict(_RAW_CONFIG.get("file_types", {}))
+USER_IGNORE_PATTERNS = set(_RAW_CONFIG.get("user_ignore_patterns", []))
 
 _directories = _RAW_CONFIG.get("directories", {})
 LOG_DIR = SCRIPT_DIR / _directories.get("log_root", "logs")
@@ -88,6 +89,7 @@ __all__ = [
     "DEFAULT_CONFIG_PATH",
     "SKIP_DIRS",
     "FILE_TYPES",
+    "USER_IGNORE_PATTERNS",
     "SCRIPT_DIR",
     "LOG_DIR",
     "BUILD_DIR",

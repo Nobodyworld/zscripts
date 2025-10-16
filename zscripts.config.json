@@ -56,5 +56,6 @@
     "js": "capture_all_js.txt",
     "python_html": "capture_all_python_html.txt",
     "any": "capture_all.txt"
-  }
+  },
+  "user_ignore_patterns": []
 }
