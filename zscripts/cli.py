@@ -14,7 +14,6 @@ from .utils import (
     collect_app_logs,
     consolidate_files,
     create_filtered_tree,
-    expand_skip_dirs,
     load_gitignore_patterns,
 )
 
@@ -97,12 +96,11 @@ def _build_single_targets(config: Config, base_dir: Path | None = None) -> dict[
 
 
 def _augment_ignore_patterns(project_root: Path, config: Config) -> list[str]:
-    ignore_patterns = list(load_gitignore_patterns(project_root))
-    expanded_patterns = expand_skip_dirs(config.skip)
-    for pattern in sorted(expanded_patterns):
-        if pattern not in ignore_patterns:
-            ignore_patterns.append(pattern)
-    return ignore_patterns
+    return load_gitignore_patterns(
+        project_root,
+        skip_dirs=config.skip,
+        user_ignore_patterns=config.user_ignore_patterns,
+    )
 
 
 def _resolve_project_root(raw_root: str, *, sample: bool) -> Path:

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import random
 import string
+from collections.abc import Iterator
 from pathlib import Path
 
 import pytest
@@ -84,6 +85,53 @@ def test_load_gitignore_patterns_includes_skip_dirs(sample_project_path: Path) -
     assert "node_modules" in patterns
 
 
+def test_load_gitignore_patterns_respects_overrides(tmp_path: Path) -> None:
+    custom_root = tmp_path / "project"
+    custom_root.mkdir()
+
+    patterns = load_gitignore_patterns(
+        custom_root,
+        skip_dirs=["custom"],
+        user_ignore_patterns=["build-artifacts", "  redundant  "],
+    )
+
+    assert "custom" in patterns
+    assert "*/custom" in patterns
+    assert "build-artifacts" in patterns
+    assert "redundant" in patterns
+
+
+def test_load_gitignore_patterns_rejects_invalid_user_entries(tmp_path: Path) -> None:
+    project_root = tmp_path / "root"
+    project_root.mkdir()
+
+    with pytest.raises(TypeError):
+        load_gitignore_patterns(project_root, user_ignore_patterns=["ok", 2])  # type: ignore[list-item]
+
+
+def test_load_gitignore_patterns_rejects_control_characters(tmp_path: Path) -> None:
+    project_root = tmp_path / "root"
+    project_root.mkdir()
+
+    with pytest.raises(ValueError):
+        load_gitignore_patterns(project_root, user_ignore_patterns=["bad\npattern"])
+
+
+def test_load_gitignore_patterns_requires_directory(tmp_path: Path) -> None:
+    file_root = tmp_path / "file.txt"
+    file_root.write_text("content", encoding="utf-8")
+
+    with pytest.raises(NotADirectoryError):
+        load_gitignore_patterns(file_root)
+
+
+def test_load_gitignore_patterns_requires_existing_path(tmp_path: Path) -> None:
+    missing_root = tmp_path / "missing"
+
+    with pytest.raises(FileNotFoundError):
+        load_gitignore_patterns(missing_root)
+
+
 def test_expand_skip_dirs_generates_variants_fuzz() -> None:
     rng = random.Random(2)
     alphabet = string.ascii_lowercase
@@ -104,3 +152,13 @@ def test_expand_skip_dirs_generates_variants_fuzz() -> None:
             assert cleaned in patterns
             assert f"{cleaned}/" in patterns
             assert f"*/{cleaned}" in patterns
+
+
+def test_expand_skip_dirs_requires_string_entries() -> None:
+    class CustomIterable:
+        def __iter__(self) -> Iterator[object]:
+            yield "valid"
+            yield 1
+
+    with pytest.raises(TypeError):
+        expand_skip_dirs(CustomIterable())
