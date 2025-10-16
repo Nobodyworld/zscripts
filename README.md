@@ -94,6 +94,10 @@ Snapshot the repository structure and inline the content of tracked files.
 ```bash
 python -m zscripts tree --project-root sample_project --output /tmp/tree.txt
 ```
+- **SKIP_DIRS:** List of directories to skip during file operations.
+- **DEFAULT_FILE_GROUPS:** Mapping of log categories to filename, glob, or extension patterns, merged with optional overrides from `zscripts.config.yaml` at the project root.
+- **get_file_group_resolver():** Helper that resolves configured patterns for fast lookups throughout the logging utilities.
+- **Directories:** Various directories defined for logging and output purposes.
 
 This is useful when you need a contextual code review bundle or want to capture
 changes across multiple stacks in a single artifact.

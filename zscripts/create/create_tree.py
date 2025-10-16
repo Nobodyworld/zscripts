@@ -1,3 +1,10 @@
+"""Create a filtered view of the project tree using shared ignore settings.
+
+The ignore configuration now flows through :func:`utils.load_gitignore_patterns`,
+which merges ``.gitignore`` entries with the defaults and user overrides from
+``config.json`` (``skip_dirs`` and ``ignore_patterns``).
+"""
+
 import os
 import sys
 from pathlib import Path
@@ -29,7 +36,7 @@ def create_tree(start_path, log_file, ignore_patterns, additional_ignore_dirs=No
         additional_ignore_dirs (set, optional): A set of additional directories to ignore. Defaults to None.
     """
     if additional_ignore_dirs is None:
-        additional_ignore_dirs = {'static', 'staticfiles', 'migrations', '__pycache__', 'media', 'node_modules', 'build', 'dist', 'logs', 'zscripts', 'venv', 'env', 'envs'}
+        additional_ignore_dirs = set(SKIP_DIRS)
     
     for root, dirs, files in os.walk(start_path, topdown=True):
         dirs[:] = [d for d in dirs if not file_matches_any_pattern(Path(root) / d, ignore_patterns) and d not in additional_ignore_dirs]
@@ -53,8 +60,8 @@ if __name__ == "__main__":
     # Ensure the log directory exists
     log_file_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load ignore patterns from .gitignore and config SKIP_DIRS
-    ignore_patterns = load_gitignore_patterns(project_root) + SKIP_DIRS
+    # Load ignore patterns from .gitignore and configuration overrides
+    ignore_patterns = load_gitignore_patterns(project_root)
 
     # Create the directory tree and write to log file
     with open(log_file_path, 'w', encoding='utf-8') as log_file:

@@ -12,7 +12,15 @@ sys.path.insert(0, str(parent_dir))
 
 # Import necessary functions and configurations
 from utils import load_gitignore_patterns, process_file, write_files, extract_definitions, consolidate_files
-from config import SCRIPT_DIR, WORK_DIR, BUILD_DIR, ANALYSIS_DIR, CONSOLIDATION_DIR, SKIP_DIRS, FILE_TYPES
+from config import (
+    SCRIPT_DIR,
+    WORK_DIR,
+    BUILD_DIR,
+    ANALYSIS_DIR,
+    CONSOLIDATION_DIR,
+    SKIP_DIRS,
+    get_file_group_resolver,
+)
 
 # Ensure necessary directories exist
 os.makedirs(WORK_DIR, exist_ok=True)
@@ -20,17 +28,17 @@ os.makedirs(BUILD_DIR, exist_ok=True)
 os.makedirs(ANALYSIS_DIR, exist_ok=True)
 os.makedirs(CONSOLIDATION_DIR, exist_ok=True)
 
-# Dictionary to store content by file type
-content_dict = {key: "" for key in FILE_TYPES.values()}
+resolver = get_file_group_resolver()
 
-def scan_directories(directory):
-    """
-    Scans directories and processes files based on specified file types.
 
-    Args:
-        directory (Path): The directory to scan for files.
-    """
-    ignore_patterns = load_gitignore_patterns(directory)
+def initialize_content_dict():
+    """Create an empty content dictionary keyed by configured file groups."""
+
+    return {group: "" for group in resolver.group_names}
+
+
+def scan_directories(directory, content_dict):
+    """Scan directories and process files that match configured file groups."""
 
     for subdir, dirs, files in os.walk(directory):
         # Skip specified directories
@@ -38,9 +46,10 @@ def scan_directories(directory):
             continue
 
         for file in files:
-            if file in FILE_TYPES:
-                file_path = Path(subdir) / file
-                process_file(file_path, FILE_TYPES[file], content_dict)
+            file_path = Path(subdir) / file
+            matched_groups = resolver.match(file_path, project_root=directory)
+            for group in matched_groups:
+                process_file(file_path, group, content_dict)
 
 def process_and_convert_files():
     """
@@ -91,7 +100,8 @@ def main():
         ignore_patterns = load_gitignore_patterns(project_root)
 
         # Scan directories for specified files
-        scan_directories(project_root)
+        content_dict = initialize_content_dict()
+        scan_directories(project_root, content_dict)
 
         # Write the processed content to log files
         write_files(content_dict, WORK_DIR)
