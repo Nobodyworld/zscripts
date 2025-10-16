@@ -99,16 +99,14 @@ def collect_command(args: argparse.Namespace) -> None:
     project_root = Path(__file__).resolve().parent.parent / "sample_project" if args.sample else Path(args.project_root).resolve()
 
     # Handle custom output directory
-    if args.output_dir:
-        output_base = Path(args.output_dir).resolve()
-    else:
-        output_base = project_root / "zscripts_logs"
+    output_base = Path(args.output_dir).resolve() if args.output_dir else None
 
     log_paths = _build_log_paths(config, output_base)
+    base_output_dir = next(iter(log_paths.values())).parent
     ignore_patterns = _augment_ignore_patterns(project_root, config)
 
     print(f"Scanning project: {project_root}")
-    print(f"Output directory: {output_base}")
+    print(f"Output directory: {base_output_dir}")
 
     for type_name in type_names:
         log_dir = log_paths[type_name]
@@ -116,7 +114,7 @@ def collect_command(args: argparse.Namespace) -> None:
         collect_app_logs(project_root, log_dir, COLLECT_TYPE_EXTENSIONS[type_name], ignore_patterns)
         print(f"✓ Created {type_name} logs at {log_dir}")
 
-    print(f"\n📁 View logs at: {output_base}")
+    print(f"\n📁 View logs at: {base_output_dir}")
 
 
 def consolidate_command(args: argparse.Namespace) -> None:
@@ -157,8 +155,8 @@ def tree_command(args: argparse.Namespace) -> None:
     elif args.output:
         output_path = Path(args.output)
     else:
-        output_base = project_root / "zscripts_logs"
-        output_path = output_base / "project_tree.txt"
+        default_base = next(iter(_build_log_paths(config).values())).parent
+        output_path = default_base / "project_tree.txt"
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
     ignore_patterns = _augment_ignore_patterns(project_root, config)
