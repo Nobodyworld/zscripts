@@ -76,7 +76,8 @@ Contains scripts and files for generating the README documentation:
 
 The `config.py` file contains essential configurations for the project:
 - **SKIP_DIRS:** List of directories to skip during file operations.
-- **FILE_TYPES:** Dictionary mapping file names to their respective log categories.
+- **DEFAULT_FILE_GROUPS:** Mapping of log categories to filename, glob, or extension patterns, merged with optional overrides from `zscripts.config.yaml` at the project root.
+- **get_file_group_resolver():** Helper that resolves configured patterns for fast lookups throughout the logging utilities.
 - **Directories:** Various directories defined for logging and output purposes.
 
 ### utils.py
