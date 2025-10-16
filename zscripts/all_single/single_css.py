@@ -16,7 +16,7 @@ def main() -> int:
 
     from zscripts.cli import main as cli_main
 
-    return cli_main(['--group', 'single_css'])
+    return cli_main(['consolidate', '--types', 'css'])
 
 
 if __name__ == '__main__':
