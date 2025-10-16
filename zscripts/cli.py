@@ -131,8 +131,8 @@ def tree_command(args: argparse.Namespace) -> None:
 def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
     subparser.add_argument(
         "--config",
-        default=DEFAULT_CONFIG_PATH.name,
-        help="Path to a zscripts configuration file (default: zscripts.config.json)",
+        default=None,
+        help=f"Path to a zscripts configuration file (default: {DEFAULT_CONFIG_PATH})",
     )
     subparser.add_argument(
         "--project-root",
