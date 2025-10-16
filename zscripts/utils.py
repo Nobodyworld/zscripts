@@ -65,7 +65,7 @@ BASE_IGNORE_PATTERNS = {
 }
 
 
-def _expand_skip_dirs(skip_dirs: Iterable[str]) -> Set[str]:
+def expand_skip_dirs(skip_dirs: Iterable[str]) -> Set[str]:
     """Create glob-style patterns that match the provided skip directories."""
 
     patterns: Set[str] = set()
@@ -101,7 +101,7 @@ def load_gitignore_patterns(root_path: Path) -> list[str]:
     gitignore_path = root_path / '.gitignore'
     patterns = set(BASE_IGNORE_PATTERNS)
     patterns.update(USER_IGNORE_PATTERNS)
-    patterns.update(_expand_skip_dirs(SKIP_DIRS))
+    patterns.update(expand_skip_dirs(SKIP_DIRS))
     if gitignore_path.is_file():
         with gitignore_path.open('r', encoding='utf-8') as file:
             for line in file:
@@ -280,6 +280,7 @@ def create_filtered_tree(
 __all__ = [
     "IgnoreMatcher",
     "load_gitignore_patterns",
+    "expand_skip_dirs",
     "file_matches_any_pattern",
     "collect_app_logs",
     "consolidate_files",

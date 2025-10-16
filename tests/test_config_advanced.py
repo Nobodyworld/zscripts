@@ -1,8 +1,10 @@
 """Configuration validation and advanced feature tests for zscripts."""
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+from zscripts.cli import _augment_ignore_patterns
 from zscripts.config import Config, get_config, load_config
 from zscripts.utils import IgnoreMatcher, consolidate_files, create_filtered_tree
 
@@ -169,6 +171,46 @@ class TestFileTypeHandling:
         content = output.read_text()
         # Hidden files should typically be included unless specifically ignored
         assert "# Hidden file" in content
+
+    def test_nested_skip_directories_ignored(self, tmp_path: Path) -> None:
+        """Nested skip directories from config should be ignored during collection."""
+
+        project_root = tmp_path / "project"
+        project_root.mkdir()
+
+        # Files that should be skipped
+        skip_root = project_root / "skipme"
+        skip_root.mkdir()
+        (skip_root / "ignored.py").write_text("print('skip root')\n")
+
+        nested_skip = project_root / "nested" / "inner"
+        nested_skip.mkdir(parents=True)
+        (nested_skip / "ignored_nested.py").write_text("print('nested skip')\n")
+
+        deep_nested = project_root / "deep" / "nested" / "inner"
+        deep_nested.mkdir(parents=True)
+        (deep_nested / "ignored_deep.py").write_text("print('deep nested skip')\n")
+
+        # File that should be collected
+        keep_dir = project_root / "keep"
+        keep_dir.mkdir()
+        kept_file = keep_dir / "collected.py"
+        kept_file.write_text("print('keep me')\n")
+
+        config_path = tmp_path / "config.json"
+        config_path.write_text(json.dumps({"skip": ["skipme", "nested/inner"]}))
+        config = load_config(config_path)
+
+        ignore_patterns = _augment_ignore_patterns(project_root, config)
+
+        output = tmp_path / "collected.txt"
+        consolidate_files(project_root, output, {".py"}, ignore_patterns)
+
+        content = output.read_text()
+        assert "keep me" in content
+        assert "skip root" not in content
+        assert "nested skip" not in content
+        assert "deep nested skip" not in content
 
 
 class TestIgnorePatterns:
