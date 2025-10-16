@@ -1,5 +1,6 @@
-backend/
-    service.py
+# backend
+
+# backend\service.py
 """Minimal backend service illustrating how zscripts can summarize Python code."""
 from __future__ import annotations
 
@@ -41,6 +42,4 @@ if __name__ == "__main__":
     service.create("demo multi-stack scanning")
     for task in service.list():
         print(f"- {task.name}: {'done' if task.completed else 'pending'}")
-
----
 

@@ -3,17 +3,18 @@
 from __future__ import annotations
 
 import argparse
+from collections.abc import Iterable, Sequence
 from pathlib import Path
-from typing import Iterable, Sequence
 
 from .config import (
     DEFAULT_CONFIG_PATH,
     SCRIPT_DIR,
+    Config,
     load_config,
 )
 from .utils import (
+    collect_app_logs,
     consolidate_files,
-    create_app_logs,
     create_filtered_tree,
     load_gitignore_patterns,
 )
@@ -51,42 +52,38 @@ def _parse_type_list(raw: str, *, allowed: Iterable[str]) -> Sequence[str]:
     return requested
 
 
-def _build_log_paths(config: dict[str, object]) -> dict[str, Path]:
-    directories = config.get("directories", {}) or {}  # type: ignore
-    collection_logs = config.get("collection_logs", {}) or {}  # type: ignore
-    directories = dict(directories)  # type: ignore
-    collection_logs = dict(collection_logs)  # type: ignore
-    log_root = SCRIPT_DIR / str(directories.get("log_root", "logs"))
+def _build_log_paths(config: Config) -> dict[str, Path]:
+    directories = config.directories
+    collection_logs = config.collection_logs
+    log_root = SCRIPT_DIR / directories.get("log_root", "logs")
     return {
-        "all": log_root / str(collection_logs.get("all", "logs_apps_all")),
-        "python": log_root / str(collection_logs.get("python", "logs_apps_pyth")),
-        "html": log_root / str(collection_logs.get("html", "logs_apps_html")),
-        "css": log_root / str(collection_logs.get("css", "logs_apps_css")),
-        "js": log_root / str(collection_logs.get("js", "logs_apps_js")),
-        "python_html": log_root / str(collection_logs.get("python_html", "logs_apps_both")),
-        "single": log_root / str(collection_logs.get("single", "logs_single_files")),
+        "all": log_root / collection_logs.get("all", "logs_apps_all"),
+        "python": log_root / collection_logs.get("python", "logs_apps_pyth"),
+        "html": log_root / collection_logs.get("html", "logs_apps_html"),
+        "css": log_root / collection_logs.get("css", "logs_apps_css"),
+        "js": log_root / collection_logs.get("js", "logs_apps_js"),
+        "python_html": log_root / collection_logs.get("python_html", "logs_apps_both"),
+        "single": log_root / collection_logs.get("single", "logs_single_files"),
     }
 
 
-def _build_single_targets(config: dict[str, object]) -> dict[str, Path]:
+def _build_single_targets(config: Config) -> dict[str, Path]:
     log_paths = _build_log_paths(config)
     single_dir = log_paths["single"]
-    targets = config.get("single_targets", {}) or {}  # type: ignore
-    targets = dict(targets)  # type: ignore
+    targets = config.single_targets
     return {
-        "python": single_dir / str(targets.get("python", "capture_all_pyth.txt")),
-        "html": single_dir / str(targets.get("html", "capture_all_html.txt")),
-        "css": single_dir / str(targets.get("css", "capture_all_css.txt")),
-        "js": single_dir / str(targets.get("js", "capture_all_js.txt")),
-        "python_html": single_dir / str(targets.get("python_html", "capture_all_python_html.txt")),
-        "any": single_dir / str(targets.get("any", "capture_all.txt")),
+        "python": single_dir / targets.get("python", "capture_all_pyth.txt"),
+        "html": single_dir / targets.get("html", "capture_all_html.txt"),
+        "css": single_dir / targets.get("css", "capture_all_css.txt"),
+        "js": single_dir / targets.get("js", "capture_all_js.txt"),
+        "python_html": single_dir / targets.get("python_html", "capture_all_python_html.txt"),
+        "any": single_dir / targets.get("any", "capture_all.txt"),
     }
 
 
-def _augment_ignore_patterns(project_root: Path, config: dict[str, object]) -> list[str]:
+def _augment_ignore_patterns(project_root: Path, config: Config) -> list[str]:
     ignore_patterns = list(load_gitignore_patterns(project_root))
-    skip_values = config.get("skip", []) or []  # type: ignore
-    skip_values = list(skip_values)  # type: ignore
+    skip_values = config.skip
     for skip in skip_values:
         ignore_patterns.append(skip)
         ignore_patterns.append(f"{skip}/")
@@ -106,7 +103,7 @@ def collect_command(args: argparse.Namespace) -> None:
     for type_name in type_names:
         log_dir = log_paths[type_name]
         log_dir.mkdir(parents=True, exist_ok=True)
-        create_app_logs(project_root, log_dir, COLLECT_TYPE_EXTENSIONS[type_name], ignore_patterns)
+        collect_app_logs(project_root, log_dir, COLLECT_TYPE_EXTENSIONS[type_name], ignore_patterns)
         print(f"Created {type_name} logs at {log_dir}")
 
 

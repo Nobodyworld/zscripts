@@ -9,14 +9,27 @@ rest of the codebase can continue importing the same names.
 from __future__ import annotations
 
 import json
+from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 DEFAULT_CONFIG_PATH = SCRIPT_DIR.parent / "zscripts.config.json"
 
 
-def _load_raw_config(config_path: Path | None = None) -> Dict[str, Any]:
+@dataclass
+class Config:
+    """Configuration data structure."""
+
+    skip: list[str]
+    file_types: dict[str, str]
+    user_ignore_patterns: set[str]
+    directories: dict[str, str]
+    collection_logs: dict[str, str]
+    single_targets: dict[str, str]
+
+
+def _load_raw_config(config_path: Path | None = None) -> dict[str, Any]:
     """Load the JSON configuration file."""
 
     path = config_path or DEFAULT_CONFIG_PATH
@@ -31,18 +44,33 @@ def _load_raw_config(config_path: Path | None = None) -> Dict[str, Any]:
 
 _RAW_CONFIG = _load_raw_config()
 
-SKIP_DIRS = list(_RAW_CONFIG.get("skip", []))
-FILE_TYPES = dict(_RAW_CONFIG.get("file_types", {}))
-USER_IGNORE_PATTERNS = set(_RAW_CONFIG.get("user_ignore_patterns", []))
 
-_directories = _RAW_CONFIG.get("directories", {})
+def _build_config(raw: dict[str, Any]) -> Config:
+    """Build a Config instance from raw JSON data."""
+    return Config(
+        skip=list(raw.get("skip", [])),
+        file_types=dict(raw.get("file_types", {})),
+        user_ignore_patterns=set(raw.get("user_ignore_patterns", [])),
+        directories=dict(raw.get("directories", {})),
+        collection_logs=dict(raw.get("collection_logs", {})),
+        single_targets=dict(raw.get("single_targets", {})),
+    )
+
+
+_CONFIG = _build_config(_RAW_CONFIG)
+
+SKIP_DIRS = _CONFIG.skip
+FILE_TYPES = _CONFIG.file_types
+USER_IGNORE_PATTERNS = _CONFIG.user_ignore_patterns
+
+_directories = _CONFIG.directories
 LOG_DIR = SCRIPT_DIR / _directories.get("log_root", "logs")
 BUILD_DIR = LOG_DIR / _directories.get("build", "build_files")
 ANALYSIS_DIR = LOG_DIR / _directories.get("analysis", "analysis_logs")
 CONSOLIDATION_DIR = LOG_DIR / _directories.get("consolidation", "consoli_files")
 WORK_DIR = LOG_DIR / _directories.get("work", "logs_files")
 
-_collection_logs = _RAW_CONFIG.get("collection_logs", {})
+_collection_logs = _CONFIG.collection_logs
 ALL_LOG_DIR = LOG_DIR / _collection_logs.get("all", "logs_apps_all")
 PYTHON_LOG_DIR = LOG_DIR / _collection_logs.get("python", "logs_apps_pyth")
 HTML_LOG_DIR = LOG_DIR / _collection_logs.get("html", "logs_apps_html")
@@ -51,7 +79,7 @@ JS_LOG_DIR = LOG_DIR / _collection_logs.get("js", "logs_apps_js")
 BOTH_LOG_DIR = LOG_DIR / _collection_logs.get("python_html", "logs_apps_both")
 SINGLE_LOG_DIR = LOG_DIR / _collection_logs.get("single", "logs_single_files")
 
-_single_targets = _RAW_CONFIG.get("single_targets", {})
+_single_targets = _CONFIG.single_targets
 CAPTURE_ALL_PYTHON_LOG = SINGLE_LOG_DIR / _single_targets.get(
     "python", "capture_all_pyth.txt"
 )
@@ -70,22 +98,29 @@ CAPTURE_ALL_PYTHON_HTML_LOG = SINGLE_LOG_DIR / _single_targets.get(
 CAPTURE_ALL_LOG = SINGLE_LOG_DIR / _single_targets.get("any", "capture_all.txt")
 
 
-def load_config(path: Path | str | None = None) -> Dict[str, Any]:
+def load_config(path: Path | str | None = None) -> Config:
     """Load configuration data from a custom path."""
 
     if path is None:
-        return dict(_RAW_CONFIG)
+        return _CONFIG
 
-    return _load_raw_config(Path(path))
+    raw = _load_raw_config(Path(path))
+    return _build_config(raw)
 
 
-def get_config() -> Dict[str, Any]:
-    """Return a shallow copy of the loaded configuration."""
+def get_config() -> Config:
+    """Return the loaded configuration."""
 
-    return dict(_RAW_CONFIG)
+    return _CONFIG
+
+
+def get_file_group_resolver() -> dict[str, str]:
+    """Return a mapping from file patterns to group names."""
+    return dict(_CONFIG.file_types)
 
 
 __all__ = [
+    "Config",
     "DEFAULT_CONFIG_PATH",
     "SKIP_DIRS",
     "FILE_TYPES",
@@ -111,4 +146,5 @@ __all__ = [
     "CAPTURE_ALL_LOG",
     "load_config",
     "get_config",
+    "get_file_group_resolver",
 ]
