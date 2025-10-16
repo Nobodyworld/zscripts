@@ -1,4 +1,4 @@
-"""Command line interface for generating zscripts logs."""
+"""Lightweight command line interface for zscripts."""
 
 from __future__ import annotations
 
@@ -19,135 +19,176 @@ from .utils import (
     load_gitignore_patterns,
 )
 
-logger = logging.getLogger(__name__)
+COLLECT_TYPE_EXTENSIONS = {
+    "python": {".py"},
+    "html": {".html"},
+    "css": {".css"},
+    "js": {".js"},
+    "python_html": {".py", ".html"},
+    "all": {".py", ".html", ".js", ".css"},
+}
 
-
-def _configure_logging(verbose: bool) -> None:
-    """Configure logging for the CLI."""
-
-    level = logging.DEBUG if verbose else logging.INFO
-    if not logging.getLogger().hasHandlers():
-        logging.basicConfig(level=level, format="%(levelname)s: %(message)s")
-    else:
-        logging.getLogger().setLevel(level)
-
-
-def _resolve_project_root(root_argument: Path | None) -> Path:
-    """Resolve the project root to an absolute path."""
-
-    if root_argument is not None:
-        return root_argument.expanduser().resolve()
-    return SCRIPT_DIR.parent
-
-
-def _list_groups() -> None:
-    """Print the available groups."""
-
-    for key, group in LOG_GROUPS.items():
-        print(f"{key:16} {group.description} -> {group.output}")
-
-
-def _run_app_logs(group, project_root: Path, ignore_patterns: Iterable[str]) -> Path:
-    log_dir = group.output
-    log_dir.mkdir(parents=True, exist_ok=True)
-    create_app_logs(project_root, log_dir, group.file_types or set(), list(ignore_patterns))
-    return log_dir
-
-
-def _run_consolidate(group, project_root: Path, ignore_patterns: Iterable[str]) -> Path:
-    log_file_path = group.output
-    log_file_path.parent.mkdir(parents=True, exist_ok=True)
-    consolidate_files(project_root, log_file_path, group.file_types or set(), list(ignore_patterns))
-    return log_file_path
-
-
-def _run_filtered_tree(group, project_root: Path, ignore_patterns: Iterable[str]) -> Path:
-    log_file_path = group.output
-    log_file_path.parent.mkdir(parents=True, exist_ok=True)
-    patterns: List[str] = list(ignore_patterns)
-    if group.include_skip_dirs:
-        patterns.extend(SKIP_DIRS)
-    create_filtered_tree(project_root, log_file_path, group.file_types, patterns)
-    return log_file_path
-
-
-HANDLERS = {
-    'app_logs': _run_app_logs,
-    'consolidate': _run_consolidate,
-    'filtered_tree': _run_filtered_tree,
+SINGLE_TYPE_EXTENSIONS = {
+    "python": {".py"},
+    "html": {".html"},
+    "css": {".css"},
+    "js": {".js"},
+    "python_html": {".py", ".html"},
+    "any": {".py", ".html", ".js", ".css"},
 }
 
 
+class UnknownTypeError(ValueError):
+    """Raised when an unknown log type is requested."""
+
+
+def _parse_type_list(raw: str, *, allowed: Iterable[str]) -> Sequence[str]:
+    requested = [value.strip() for value in raw.split(",") if value.strip()]
+    if not requested:
+        return ()
+    for value in requested:
+        if value not in allowed:
+            raise UnknownTypeError(f"Unsupported type '{value}'. Choose from {sorted(allowed)}")
+    return requested
+
+
+def _build_log_paths(config: dict[str, object]) -> dict[str, Path]:
+    directories = config.get("directories", {}) or {}
+    collection_logs = config.get("collection_logs", {}) or {}
+    log_root = SCRIPT_DIR / str(directories.get("log_root", "logs"))
+    return {
+        "all": log_root / str(collection_logs.get("all", "logs_apps_all")),
+        "python": log_root / str(collection_logs.get("python", "logs_apps_pyth")),
+        "html": log_root / str(collection_logs.get("html", "logs_apps_html")),
+        "css": log_root / str(collection_logs.get("css", "logs_apps_css")),
+        "js": log_root / str(collection_logs.get("js", "logs_apps_js")),
+        "python_html": log_root / str(collection_logs.get("python_html", "logs_apps_both")),
+        "single": log_root / str(collection_logs.get("single", "logs_single_files")),
+    }
+
+
+def _build_single_targets(config: dict[str, object]) -> dict[str, Path]:
+    log_paths = _build_log_paths(config)
+    single_dir = log_paths["single"]
+    targets = config.get("single_targets", {}) or {}
+    return {
+        "python": single_dir / str(targets.get("python", "capture_all_pyth.txt")),
+        "html": single_dir / str(targets.get("html", "capture_all_html.txt")),
+        "css": single_dir / str(targets.get("css", "capture_all_css.txt")),
+        "js": single_dir / str(targets.get("js", "capture_all_js.txt")),
+        "python_html": single_dir / str(targets.get("python_html", "capture_all_python_html.txt")),
+        "any": single_dir / str(targets.get("any", "capture_all.txt")),
+    }
+
+
+def _augment_ignore_patterns(project_root: Path, config: dict[str, object]) -> list[str]:
+    ignore_patterns = load_gitignore_patterns(project_root)
+    skip_values = config.get("skip", []) or []
+    for skip in skip_values:
+        ignore_patterns.append(skip)
+        ignore_patterns.append(f"{skip}/")
+    return ignore_patterns
+
+
+def collect_command(args: argparse.Namespace) -> None:
+    config = load_config(args.config)
+    type_names = _parse_type_list(args.types, allowed=COLLECT_TYPE_EXTENSIONS.keys())
+    if not type_names:
+        type_names = ("python",)
+
+    project_root = Path(args.project_root).resolve()
+    log_paths = _build_log_paths(config)
+    ignore_patterns = _augment_ignore_patterns(project_root, config)
+
+    for type_name in type_names:
+        log_dir = log_paths[type_name]
+        log_dir.mkdir(parents=True, exist_ok=True)
+        create_app_logs(project_root, log_dir, COLLECT_TYPE_EXTENSIONS[type_name], ignore_patterns)
+        print(f"Created {type_name} logs at {log_dir}")
+
+
+def consolidate_command(args: argparse.Namespace) -> None:
+    config = load_config(args.config)
+    type_names = _parse_type_list(args.types, allowed=SINGLE_TYPE_EXTENSIONS.keys())
+    if len(type_names) != 1:
+        raise UnknownTypeError("Consolidate command accepts a single type value")
+
+    type_name = type_names[0] if type_names else "python"
+    project_root = Path(args.project_root).resolve()
+    targets = _build_single_targets(config)
+    output_path = Path(args.output) if args.output else targets[type_name]
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    ignore_patterns = _augment_ignore_patterns(project_root, config)
+    consolidate_files(project_root, output_path, SINGLE_TYPE_EXTENSIONS[type_name], ignore_patterns)
+    print(f"Consolidated {type_name} sources into {output_path}")
+
+
+def tree_command(args: argparse.Namespace) -> None:
+    config = load_config(args.config)
+    project_root = Path(args.project_root).resolve()
+    output_path = Path(args.output) if args.output else (_build_log_paths(config)["single"] / "tree.txt")
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    ignore_patterns = _augment_ignore_patterns(project_root, config)
+    create_filtered_tree(project_root, output_path, ignore_patterns=ignore_patterns)
+    print(f"Wrote project tree to {output_path}")
+
+
+def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
+    subparser.add_argument(
+        "--config",
+        default=None,
+        help=f"Path to a zscripts configuration file (default: {DEFAULT_CONFIG_PATH})",
+    )
+    subparser.add_argument(
+        "--project-root",
+        default=".",
+        help="Root directory to scan (default: current directory)",
+    )
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(description="CLI front-end for zscripts utilities")
+    subparsers = parser.add_subparsers(dest="command", required=True)
+
+    collect_parser = subparsers.add_parser("collect", help="Generate per-app logs for selected stacks")
+    _add_shared_arguments(collect_parser)
+    collect_parser.add_argument(
+        "--types",
+        default="python",
+        help="Comma separated list of stacks to capture (choices: python, html, css, js, python_html, all)",
+    )
+    collect_parser.set_defaults(func=collect_command)
+
+    consolidate_parser = subparsers.add_parser("consolidate", help="Create a single consolidated log file")
+    _add_shared_arguments(consolidate_parser)
+    consolidate_parser.add_argument(
+        "--types",
+        default="python",
+        help="Select the source stack to consolidate (choices: python, html, css, js, python_html, any)",
+    )
+    consolidate_parser.add_argument(
+        "--output",
+        help="Optional custom output path for the consolidated log",
+    )
+    consolidate_parser.set_defaults(func=consolidate_command)
+
+    tree_parser = subparsers.add_parser("tree", help="Snapshot the project tree with filtered sources")
+    _add_shared_arguments(tree_parser)
+    tree_parser.add_argument(
+        "--output",
+        help="Optional custom output file for the tree snapshot",
+    )
+    tree_parser.set_defaults(func=tree_command)
+
+    return parser
+
+
 def main(argv: Sequence[str] | None = None) -> int:
-    """Entry point for the CLI."""
-
-    parser = argparse.ArgumentParser(
-        description=(
-            "Generate per-application logs, consolidated file snapshots, and filtered "
-            "directory trees for a project."
-        )
-    )
-    parser.add_argument(
-        '--root',
-        type=Path,
-        help='Optional project root. Defaults to the parent of the zscripts directory.',
-    )
-    parser.add_argument(
-        '-g',
-        '--group',
-        dest='groups',
-        action='append',
-        choices=list(LOG_GROUPS.keys()),
-        help='Specific group to run. Provide multiple times to run more than one group.',
-    )
-    parser.add_argument(
-        '--list',
-        action='store_true',
-        help='List available groups and exit.',
-    )
-    parser.add_argument(
-        '--verbose',
-        action='store_true',
-        help='Enable verbose logging output.',
-    )
-
+    parser = build_parser()
     args = parser.parse_args(argv)
-
-    _configure_logging(args.verbose)
-
-    if args.list:
-        _list_groups()
-        return 0
-
-    project_root = _resolve_project_root(args.root)
-    if not project_root.exists():
-        logger.error("The provided project root does not exist: %s", project_root)
-        return 2
-
-    base_ignore_patterns = load_gitignore_patterns(project_root)
-    group_keys = args.groups or list(LOG_GROUPS.keys())
-
-    logger.info("Project root: %s", project_root)
-    logger.info("Groups to process: %s", ', '.join(group_keys))
-
-    exit_code = 0
-    for key in group_keys:
-        group = LOG_GROUPS[key]
-        handler = HANDLERS[group.handler]
-        logger.info("Processing group '%s' - %s", group.key, group.description)
-        try:
-            output_path = handler(group, project_root, base_ignore_patterns)
-        except Exception:
-            logger.exception("Failed to process group '%s'", group.key)
-            exit_code = 1
-            continue
-
-        if output_path.is_dir():
-            logger.info("Completed '%s'. Outputs written to directory: %s", group.key, output_path)
-        else:
-            logger.info("Completed '%s'. Output file written to: %s", group.key, output_path)
-
-    return exit_code
+    args.func(args)
+    return 0
 
 
-__all__ = ['main']
+if __name__ == "__main__":
+    raise SystemExit(main())
