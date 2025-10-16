@@ -1,16 +1,19 @@
 """Service layer for task and project management."""
+
 from __future__ import annotations
 
-from .models import Task, Project, User
+from dataclasses import dataclass, field
+
+from .models import Project, Task, User
 
 
+@dataclass(slots=True)
 class TaskService:
     """Service for managing tasks and projects."""
 
-    def __init__(self):
-        self.tasks: dict[str, Task] = {}
-        self.projects: dict[str, Project] = {}
-        self.users: dict[str, User] = {}
+    tasks: dict[str, Task] = field(default_factory=dict)
+    projects: dict[str, Project] = field(default_factory=dict)
+    users: dict[str, User] = field(default_factory=dict)
 
     def create_task(
         self,
@@ -40,10 +43,10 @@ class TaskService:
     def assign_task(self, task_id: str, user_id: str) -> bool:
         """Assign a task to a user."""
         task = self.get_task(task_id)
-        if task:
-            task.assignee_id = user_id
-            return True
-        return False
+        if task is None:
+            return False
+        task.assign_to(user_id)
+        return True
 
     def mark_task_complete(self, task_id: str) -> Task | None:
         """Mark a task as complete."""

@@ -92,19 +92,38 @@ When no output file is supplied, the command falls back to the
 
 ### `tree`
 
-Snapshot the repository structure and inline the content of tracked files.
+Snapshot the repository structure. File contents are omitted by default to
+produce a compact overview; pass `--include-contents` to embed truncated file
+bodies when needed.
 
 ```bash
-python -m zscripts tree --project-root sample_project --output /tmp/tree.txt
+python -m zscripts tree --project-root sample_project --output /tmp/tree.txt --include-contents
 ```
-
-- **SKIP_DIRS:** List of directories to skip during file operations.
-- **DEFAULT_FILE_GROUPS:** Mapping of log categories to filename, glob, or extension patterns, merged with optional overrides from `zscripts.config.yaml` at the project root.
-- **get_file_group_resolver():** Helper that resolves configured patterns for fast lookups throughout the logging utilities.
-- **Directories:** Various directories defined for logging and output purposes.
-
 This is useful when you need a contextual code review bundle or want to capture
 changes across multiple stacks in a single artifact.
+
+## Verification Checklist
+
+All static analysis and tests run locally with reproducible commands:
+
+```bash
+make fmt      # Format sources with Ruff
+make lint     # Lint sources
+make type     # Strict mypy type checks
+make security # Bandit security scanner
+make test     # Pytest suite (including property-based coverage)
+```
+
+`make check` executes the full pipeline in the recommended order.
+
+To keep commits clean, install the bundled Git hooks:
+
+```bash
+pip install -r requirements.txt
+pre-commit install
+```
+
+The hooks run Ruff (format + lint), mypy, pytest, and Bandit for every commit.
 
 ## Sample Project
 
@@ -120,6 +139,18 @@ neutral, multi-language workspace:
 
 Running `python -m zscripts collect --types all --project-root sample_project`
 illustrates how Zscripts walks the different stacks using the same command.
+
+## Observability and SLO Notes
+
+- **Structured logs:** The CLI and sample database manager emit structured
+  `event=...` log lines with error identifiers (`CLI001`, `FS001`, `DB001`,
+  etc.) that can be scraped into centralized logging backends.
+- **Success rate SLO:** The CLI targets a 99% success rate across scheduled
+  runs. Investigate logs containing `error_id=CLI` or `error_id=FS` to triage
+  regressions. Re-run `make check` for deterministic reproduction.
+- **Latency expectation:** Property-based tests and scanners complete in under
+  60 seconds on a developer laptop. If `make check` exceeds that window,
+  profile disk-heavy paths in `zscripts.utils` before the next release.
 
 ## Migrating from the Django Scripts
 

@@ -1,68 +1,89 @@
-"""Django-style models for the sample project."""
+"""Data models backing the sample project service layer."""
+
 from __future__ import annotations
 
+from dataclasses import dataclass, field
 from datetime import datetime
 from uuid import uuid4
 
 
+def _now() -> datetime:
+    return datetime.now()
+
+
+def _new_id() -> str:
+    return str(uuid4())
+
+
+@dataclass(slots=True)
 class BaseModel:
-    """Base model with common fields."""
+    """Base model that tracks creation and modification timestamps."""
 
-    def __init__(self):
-        self.id = str(uuid4())
-        self.created_at = datetime.now()
-        self.updated_at = datetime.now()
+    id: str = field(init=False)
+    created_at: datetime = field(init=False)
+    updated_at: datetime = field(init=False)
+
+    def __post_init__(self) -> None:
+        # Ensure created and updated timestamps start aligned for determinism in tests.
+        now = _now()
+        self.id = _new_id()
+        self.created_at = now
+        self.updated_at = now
+
+    def touch(self) -> None:
+        """Update the ``updated_at`` timestamp to ``now``."""
+
+        self.updated_at = _now()
 
 
+@dataclass(slots=True)
 class User(BaseModel):
     """User model representing system users."""
 
-    def __init__(self, username: str, email: str, is_active: bool = True, role: str = "user"):
-        super().__init__()
-        self.username = username
-        self.email = email
-        self.is_active = is_active
-        self.role = role
-        self.updated_at = self.created_at
+    username: str
+    email: str
+    is_active: bool = True
+    role: str = "user"
 
 
+@dataclass(slots=True)
 class Project(BaseModel):
-    """Project model for organizing tasks."""
+    """Project model for organising tasks."""
 
-    def __init__(self, name: str, description: str | None = None, owner_id: str = "", status: str = "active", tags: list[str] | None = None):
-        super().__init__()
-        self.name = name
-        self.description = description
-        self.owner_id = owner_id
-        self.status = status
-        self.tags = tags or []
+    name: str
+    description: str | None = None
+    owner_id: str = ""
+    status: str = "active"
+    tags: list[str] = field(default_factory=list)
 
     def add_tag(self, tag: str) -> None:
-        """Add a tag to the project."""
+        """Attach *tag* to the project if not already present."""
+
         if tag not in self.tags:
             self.tags.append(tag)
-            self.updated_at = datetime.now()
+            self.touch()
 
 
+@dataclass(slots=True)
 class Task(BaseModel):
     """Task model with project relationships."""
 
-    def __init__(self, title: str, description: str | None = None, project_id: str = "", assignee_id: str | None = None, status: str = "todo", priority: str = "medium", due_date: datetime | None = None):
-        super().__init__()
-        self.title = title
-        self.description = description
-        self.project_id = project_id
-        self.assignee_id = assignee_id
-        self.status = status
-        self.priority = priority
-        self.due_date = due_date
+    title: str
+    description: str | None = None
+    project_id: str = ""
+    assignee_id: str | None = None
+    status: str = "todo"
+    priority: str = "medium"
+    due_date: datetime | None = None
 
     def mark_complete(self) -> None:
         """Mark the task as completed."""
+
         self.status = "done"
-        self.updated_at = datetime.now()
+        self.touch()
 
     def assign_to(self, user_id: str) -> None:
-        """Assign task to a user."""
+        """Assign task to a user and refresh timestamps."""
+
         self.assignee_id = user_id
-        self.updated_at = datetime.now()
+        self.touch()

@@ -42,6 +42,9 @@ source = ["zscripts"]
 [tool.ruff]
 line-length = 100
 
+[tool.ruff.format]
+docstring-code-format = true
+
 [tool.ruff.lint]
 select = ["E", "F", "I", "N", "W", "B", "UP", "PL"]
 ignore = ["E203", "E501"]
@@ -49,3 +52,31 @@ ignore = ["E203", "E501"]
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = ["PLR2004"]
 "zscripts/utils.py" = ["PLR0913"]
+
+[tool.mypy]
+python_version = "3.11"
+strict = true
+warn_unused_configs = true
+warn_return_any = true
+warn_unused_ignores = true
+warn_redundant_casts = true
+disallow_any_unimported = true
+disallow_any_expr = true
+disallow_any_decorated = true
+disallow_any_generics = true
+enable_error_code = ["ignore-without-code"]
+exclude = ["tests/tmp-case", "tests/tmp-case2"]
+
+[[tool.mypy.overrides]]
+module = "tests.*"
+allow_untyped_defs = true
+allow_untyped_calls = true
+ignore_missing_imports = true
+ignore_errors = true
+
+[[tool.mypy.overrides]]
+module = "hypothesis.*"
+ignore_missing_imports = true
+
+[tool.bandit]
+exclude_dirs = ["tests/tmp-case", "tests/tmp-case2"]

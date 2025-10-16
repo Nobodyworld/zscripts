@@ -38,7 +38,9 @@ def _prepare_sample_project(tmp_path: Path) -> Path:
 
 
 @pytest.mark.parametrize("module_name", COLLECT_WRAPPERS)
-def test_collect_wrappers_succeed(module_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_collect_wrappers_succeed(
+    module_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project_root = _prepare_sample_project(tmp_path)
     monkeypatch.chdir(project_root)
 
@@ -49,7 +51,9 @@ def test_collect_wrappers_succeed(module_name: str, tmp_path: Path, monkeypatch:
 
 
 @pytest.mark.parametrize("module_name", SINGLE_WRAPPERS)
-def test_single_wrappers_succeed(module_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_single_wrappers_succeed(
+    module_name: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
     project_root = _prepare_sample_project(tmp_path)
     monkeypatch.chdir(project_root)
 
