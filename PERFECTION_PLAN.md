@@ -133,6 +133,7 @@ This comprehensive plan outlines the steps to transform zscripts from a function
 - Performance benchmarks show 10x improvement
 
 ### 3.2 Advanced Configuration
+
 **Goal:** Support complex project structures and workflows
 
 **Tasks:**

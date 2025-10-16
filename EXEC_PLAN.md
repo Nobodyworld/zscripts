@@ -1,4 +1,3 @@
-```md
 # Professionalize zscripts project for public audiences
 
 This ExecPlan is a living document. The sections `Progress`, `Surprises & Discoveries`, `Decision Log`, and `Outcomes & Retrospective` must be kept up to date as work proceeds.

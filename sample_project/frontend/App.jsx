@@ -2,31 +2,33 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 
-interface Task {
-  id: string;
-  title: string;
-  description: string;
-  status: 'todo' | 'in_progress' | 'done';
-  priority: 'low' | 'medium' | 'high';
-  assignee_id?: string;
-  project_id: string;
-  created_at: string;
-  updated_at: string;
-}
+/**
+ * @typedef {Object} Task
+ * @property {string} id
+ * @property {string} title
+ * @property {string} description
+ * @property {'todo' | 'in_progress' | 'done'} status
+ * @property {'low' | 'medium' | 'high'} priority
+ * @property {string} [assignee_id]
+ * @property {string} project_id
+ * @property {string} created_at
+ * @property {string} updated_at
+ */
 
-interface Project {
-  id: string;
-  name: string;
-  description: string;
-  status: 'active' | 'completed' | 'archived';
-  tags: string[];
-  created_at: string;
-}
+/**
+ * @typedef {Object} Project
+ * @property {string} id
+ * @property {string} name
+ * @property {string} description
+ * @property {'active' | 'completed' | 'archived'} status
+ * @property {string[]} tags
+ * @property {string} created_at
+ */
 
 function App() {
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [selectedProject, setSelectedProject] = useState<string>('');
+  const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
   const [newTaskTitle, setNewTaskTitle] = useState('');
   const [newTaskDescription, setNewTaskDescription] = useState('');
   const [loading, setLoading] = useState(true);
@@ -38,7 +40,7 @@ function App() {
   const loadData = async () => {
     try {
       // Mock API calls - in real app these would fetch from backend
-      const mockTasks: Task[] = [
+      const mockTasks = [
         {
           id: '1',
           title: 'Implement user authentication',
@@ -61,7 +63,7 @@ function App() {
         },
       ];
 
-      const mockProjects: Project[] = [
+      const mockProjects = [
         {
           id: '1',
           name: 'Task Management System',
@@ -84,7 +86,7 @@ function App() {
   const createTask = async () => {
     if (!newTaskTitle.trim()) return;
 
-    const newTask: Task = {
+    const newTask = {
       id: Date.now().toString(),
       title: newTaskTitle,
       description: newTaskDescription,
@@ -100,7 +102,7 @@ function App() {
     setNewTaskDescription('');
   };
 
-  const updateTaskStatus = async (taskId: string, status: Task['status']) => {
+  const updateTaskStatus = async (taskId, status) => {
     setTasks(prev =>
       prev.map(task =>
         task.id === taskId
@@ -110,7 +112,7 @@ function App() {
     );
   };
 
-  const getStatusColor = (status: Task['status']) => {
+  const getStatusColor = (status) => {
     switch (status) {
       case 'done': return '#10b981';
       case 'in_progress': return '#f59e0b';
@@ -118,7 +120,7 @@ function App() {
     }
   };
 
-  const getPriorityColor = (priority: Task['priority']) => {
+  const getPriorityColor = (priority) => {
     switch (priority) {
       case 'high': return '#ef4444';
       case 'medium': return '#f59e0b';
@@ -197,7 +199,7 @@ function App() {
                 <div className="task-footer">
                   <select
                     value={task.status}
-                    onChange={(e) => updateTaskStatus(task.id, e.target.value as Task['status'])}
+                    onChange={(e) => updateTaskStatus(task.id, e.target.value)}
                     style={{ backgroundColor: getStatusColor(task.status) }}
                   >
                     <option value="todo">To Do</option>
