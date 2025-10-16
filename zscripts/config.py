@@ -6,6 +6,7 @@ import json
 from collections.abc import Iterable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
+from types import MappingProxyType
 from typing import TypeAlias, TypedDict, cast
 
 SCRIPT_DIR = Path(__file__).resolve().parent
@@ -30,11 +31,11 @@ class Config:
     """Immutable snapshot of configuration values loaded from JSON."""
 
     skip: tuple[str, ...]
-    file_types: dict[str, str]
+    file_types: Mapping[str, str]
     user_ignore_patterns: frozenset[str]
-    directories: dict[str, str]
-    collection_logs: dict[str, str]
-    single_targets: dict[str, str]
+    directories: Mapping[str, str]
+    collection_logs: Mapping[str, str]
+    single_targets: Mapping[str, str]
 
     def to_dict(self) -> SerializableConfig:
         return {
@@ -123,20 +124,30 @@ def _ensure_mapping_of_strings(value: JSONValue | None, *, name: str) -> dict[st
     return result
 
 
+def _freeze_mapping(mapping: Mapping[str, str]) -> Mapping[str, str]:
+    return MappingProxyType(dict(mapping))
+
+
 def _normalise_raw_config(raw: JSONMapping) -> Config:
     return Config(
         skip=_ensure_iterable_of_strings(raw.get("skip"), name="skip"),
-        file_types=_ensure_mapping_of_strings(raw.get("file_types"), name="file_types"),
+        file_types=_freeze_mapping(
+            _ensure_mapping_of_strings(raw.get("file_types"), name="file_types")
+        ),
         user_ignore_patterns=frozenset(
             _ensure_iterable_of_strings(
                 raw.get("user_ignore_patterns"), name="user_ignore_patterns"
             )
         ),
-        directories=_ensure_mapping_of_strings(raw.get("directories"), name="directories"),
-        collection_logs=_ensure_mapping_of_strings(
-            raw.get("collection_logs"), name="collection_logs"
+        directories=_freeze_mapping(
+            _ensure_mapping_of_strings(raw.get("directories"), name="directories")
         ),
-        single_targets=_ensure_mapping_of_strings(raw.get("single_targets"), name="single_targets"),
+        collection_logs=_freeze_mapping(
+            _ensure_mapping_of_strings(raw.get("collection_logs"), name="collection_logs")
+        ),
+        single_targets=_freeze_mapping(
+            _ensure_mapping_of_strings(raw.get("single_targets"), name="single_targets")
+        ),
     )
 
 
@@ -146,19 +157,23 @@ def _merge_config_data(defaults: Config, overrides: Config) -> Config:
         if value not in combined_skip:
             combined_skip.append(value)
     skip = tuple(combined_skip)
-    file_types = defaults.file_types | overrides.file_types
+    file_types = dict(defaults.file_types)
+    file_types.update(overrides.file_types)
     user_ignore_patterns = defaults.user_ignore_patterns | overrides.user_ignore_patterns
-    directories = defaults.directories | overrides.directories
-    collection_logs = defaults.collection_logs | overrides.collection_logs
-    single_targets = defaults.single_targets | overrides.single_targets
+    directories = dict(defaults.directories)
+    directories.update(overrides.directories)
+    collection_logs = dict(defaults.collection_logs)
+    collection_logs.update(overrides.collection_logs)
+    single_targets = dict(defaults.single_targets)
+    single_targets.update(overrides.single_targets)
 
     return Config(
         skip=skip,
-        file_types=file_types,
+        file_types=_freeze_mapping(file_types),
         user_ignore_patterns=user_ignore_patterns,
-        directories=directories,
-        collection_logs=collection_logs,
-        single_targets=single_targets,
+        directories=_freeze_mapping(directories),
+        collection_logs=_freeze_mapping(collection_logs),
+        single_targets=_freeze_mapping(single_targets),
     )
 
 
