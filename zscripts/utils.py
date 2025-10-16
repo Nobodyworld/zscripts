@@ -1,45 +1,102 @@
 # zscripts/utils.py
+"""Utility helpers shared across the zscripts project.
+
+The module makes use of configuration values declared in :mod:`zscripts.config`
+which now allow user extensions through ``config.json``.  In particular the
+``ignore_patterns`` and ``skip_dirs`` settings augment the logic in
+:func:`load_gitignore_patterns` to ensure custom exclusions propagate through
+all tools consistently.
+"""
+
 import fnmatch
 from pathlib import Path
 import os
 import re
-from config import SKIP_DIRS, FILE_TYPES
+from typing import Iterable, Set
+from config import SKIP_DIRS, FILE_TYPES, USER_IGNORE_PATTERNS
+
+BASE_IGNORE_PATTERNS = {
+    '*.pyc',
+    '__pycache__/',
+    '.DS_Store',
+    '*.sqlite3',
+    'db.sqlite3',
+    '/staticfiles/',
+    '/media/',
+    'error.dev.log',
+    'error.base.log',
+    'error.test.log',
+    'error.prod.log',
+    'logs',
+    'logs/',
+    'zscripts',
+    'zscripts/',
+    'static/',
+    'staticfiles/',
+    'migrations/',
+    'migrations',
+    'node_modules/',
+    'yarn-error.log',
+    'yarn-debug.log',
+    'yarn.lock',
+    'package-lock.json',
+    'package.json',
+    'zbuild',
+    'zbuild/'
+}
+
+
+def _expand_skip_dirs(skip_dirs: Iterable[str]) -> Set[str]:
+    """Create glob-style patterns that match the provided skip directories."""
+
+    patterns: Set[str] = set()
+    for skip_dir in skip_dirs:
+        cleaned = skip_dir.strip('/')
+        if not cleaned:
+            continue
+        patterns.update({
+            cleaned,
+            f"{cleaned}/",
+            f"*/{cleaned}",
+            f"*/{cleaned}/",
+            f"*/{cleaned}/*",
+            f"{cleaned}/*",
+        })
+    return patterns
 
 def load_gitignore_patterns(root_path):
     """
-    Loads patterns from the .gitignore file to ignore specific files and directories during operations.
+    Load ignore patterns from several sources for consistent filtering.
+
+    The resulting set merges patterns from the local ``.gitignore`` file,
+    built-in defaults, :data:`config.SKIP_DIRS`, and any
+    ``ignore_patterns`` entries defined in ``config.json``.
 
     Args:
         root_path (Path): The root directory path where the .gitignore file is located.
 
     Returns:
-        list: A list of patterns to ignore.
+        set: A set of patterns to ignore.
     """
     gitignore_path = root_path / '.gitignore'
-    patterns = [
-        '*.pyc', '__pycache__/', '.DS_Store', '*.sqlite3', 'db.sqlite3',
-        '/staticfiles/', '/media/', 'error.dev.log', 'error.base.log', 
-        'error.test.log', 'error.prod.log', 'logs', 'logs/', 'zscripts', 
-        'zscripts/', 'static/', 'staticfiles/', 'migrations/', 'migrations', 
-        'node_modules/', 'yarn-error.log', 'yarn-debug.log', 'yarn.lock', 
-        'package-lock.json', 'package.json', 'zscripts/', 'zscripts', 'zbuild',
-        'zbuild/'
-    ]
+    patterns = set(BASE_IGNORE_PATTERNS)
+    patterns.update(USER_IGNORE_PATTERNS)
+    patterns.update(_expand_skip_dirs(SKIP_DIRS))
     if gitignore_path.is_file():
         with open(gitignore_path, 'r', encoding='utf-8') as file:
             for line in file:
                 stripped_line = line.strip()
                 if stripped_line and not stripped_line.startswith('#'):
-                    patterns.append(stripped_line)
+                    patterns.add(stripped_line)
     return patterns
 
 def file_matches_any_pattern(file_path, patterns):
     """
-    Checks if a file path matches any pattern in the provided patterns list.
+    Checks if a file path matches any pattern in the provided collection.
 
     Args:
         file_path (Path): The file path to check.
-        patterns (list): A list of patterns to match against.
+        patterns (Iterable[str]): Glob-style patterns to match against.
 
     Returns:
         bool: True if the file path matches any pattern, False otherwise.
@@ -61,7 +118,7 @@ def create_app_logs(root_dir, log_dir, file_types, ignore_patterns):
         root_dir (Path): The root directory to scan for app directories.
         log_dir (Path): The directory to save the log files.
         file_types (set): A set of file extensions to include in the logs.
-        ignore_patterns (list): A list of patterns to ignore.
+        ignore_patterns (Iterable[str]): Patterns to ignore.
     """
     for app_dir in [d for d in root_dir.iterdir() if d.is_dir()]:
         if file_matches_any_pattern(app_dir, ignore_patterns):
@@ -94,7 +151,7 @@ def consolidate_files(root_dir, log_file_path, file_types, ignore_patterns):
         root_dir (Path): The root directory to scan for files.
         log_file_path (Path): The file path to save the consolidated log.
         file_types (set): A set of file extensions to include in the log.
-        ignore_patterns (list): A list of patterns to ignore.
+        ignore_patterns (Iterable[str]): Patterns to ignore.
     """
     with open(log_file_path, 'w', encoding='utf-8') as log_file:
         for root, dirs, files in os.walk(root_dir):
@@ -121,7 +178,7 @@ def create_filtered_tree(start_path, log_file_path, file_types=None, ignore_patt
         start_path (Path): The starting directory path.
         log_file_path (Path): The file path to save the log.
         file_types (set, optional): A set of file extensions to include in the logs. Defaults to {'.py', '.html', '.js', '.css'}.
-        ignore_patterns (list, optional): A list of patterns to ignore. Defaults to an empty list.
+        ignore_patterns (Iterable[str], optional): Patterns to ignore. Defaults to an empty iterable.
     """
     if file_types is None:
         file_types = {'.py', '.html', '.js', '.css'}

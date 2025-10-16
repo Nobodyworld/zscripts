@@ -1,4 +1,11 @@
 # zscripts/make/analysis.py
+"""Generate analysis reports using the shared ignore configuration.
+
+The ignore rules now originate from :func:`utils.load_gitignore_patterns`,
+ensuring ``skip_dirs`` and ``ignore_patterns`` from ``config.json`` apply to
+this build step without additional tweaking in the script itself.
+"""
+
 import sys
 from pathlib import Path
 import os
@@ -14,7 +21,7 @@ sys.path.insert(0, str(parent_dir))
 
 # Import necessary functions and configurations
 from utils import load_gitignore_patterns, file_matches_any_pattern
-from config import SCRIPT_DIR, ANALYSIS_DIR, BUILD_DIR, SKIP_DIRS
+from config import SCRIPT_DIR, ANALYSIS_DIR, BUILD_DIR
 
 # Ensure the analysis directory exists
 ANALYSIS_DIR.mkdir(parents=True, exist_ok=True)
@@ -61,7 +68,7 @@ def scan_directory(directory, ignore_patterns):
 
     Args:
         directory (Path): The directory to scan for Python files.
-        ignore_patterns (list): A list of patterns to ignore.
+        ignore_patterns (Iterable[str]): Patterns to ignore while scanning.
     
     Notes:
         - This function iterates over all files in the specified directory, calling extract_definitions for each Python file.
@@ -79,6 +86,6 @@ def scan_directory(directory, ignore_patterns):
 
 if __name__ == "__main__":
     project_root = SCRIPT_DIR.parent
-    ignore_patterns = load_gitignore_patterns(project_root) + SKIP_DIRS
+    ignore_patterns = load_gitignore_patterns(project_root)
     scan_directory(BUILD_DIR, ignore_patterns)
     print("Extraction complete. Check the analysis logs directory for details.")
