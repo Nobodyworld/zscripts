@@ -52,24 +52,23 @@ def _parse_type_list(raw: str, *, allowed: Iterable[str]) -> Sequence[str]:
     return requested
 
 
-def _build_log_paths(config: Config) -> dict[str, Path]:
-    directories = config.directories
+def _build_log_paths(config: Config, output_base: Path | None = None) -> dict[str, Path]:
+    base_dir = output_base if output_base else SCRIPT_DIR / config.directories.get("log_root", "logs")
     collection_logs = config.collection_logs
-    log_root = SCRIPT_DIR / directories.get("log_root", "logs")
     return {
-        "all": log_root / collection_logs.get("all", "logs_apps_all"),
-        "python": log_root / collection_logs.get("python", "logs_apps_pyth"),
-        "html": log_root / collection_logs.get("html", "logs_apps_html"),
-        "css": log_root / collection_logs.get("css", "logs_apps_css"),
-        "js": log_root / collection_logs.get("js", "logs_apps_js"),
-        "python_html": log_root / collection_logs.get("python_html", "logs_apps_both"),
-        "single": log_root / collection_logs.get("single", "logs_single_files"),
+        "all": base_dir / collection_logs.get("all", "logs_apps_all"),
+        "python": base_dir / collection_logs.get("python", "logs_apps_pyth"),
+        "html": base_dir / collection_logs.get("html", "logs_apps_html"),
+        "css": base_dir / collection_logs.get("css", "logs_apps_css"),
+        "js": base_dir / collection_logs.get("js", "logs_apps_js"),
+        "python_html": base_dir / collection_logs.get("python_html", "logs_apps_both"),
+        "single": base_dir / collection_logs.get("single", "logs_single_files"),
     }
 
 
-def _build_single_targets(config: Config) -> dict[str, Path]:
-    log_paths = _build_log_paths(config)
-    single_dir = log_paths["single"]
+def _build_single_targets(config: Config, output_base: Path | None = None) -> dict[str, Path]:
+    base_dir = output_base if output_base else SCRIPT_DIR / config.directories.get("log_root", "logs")
+    single_dir = base_dir / config.collection_logs.get("single", "logs_single_files")
     targets = config.single_targets
     return {
         "python": single_dir / targets.get("python", "capture_all_pyth.txt"),
@@ -96,15 +95,28 @@ def collect_command(args: argparse.Namespace) -> None:
     if not type_names:
         type_names = ("python",)
 
-    project_root = Path(args.project_root).resolve()
-    log_paths = _build_log_paths(config)
+    # Handle sample project
+    project_root = Path(__file__).resolve().parent.parent / "sample_project" if args.sample else Path(args.project_root).resolve()
+
+    # Handle custom output directory
+    if args.output_dir:
+        output_base = Path(args.output_dir).resolve()
+    else:
+        output_base = project_root / "zscripts_logs"
+
+    log_paths = _build_log_paths(config, output_base)
     ignore_patterns = _augment_ignore_patterns(project_root, config)
+
+    print(f"Scanning project: {project_root}")
+    print(f"Output directory: {output_base}")
 
     for type_name in type_names:
         log_dir = log_paths[type_name]
         log_dir.mkdir(parents=True, exist_ok=True)
         collect_app_logs(project_root, log_dir, COLLECT_TYPE_EXTENSIONS[type_name], ignore_patterns)
-        print(f"Created {type_name} logs at {log_dir}")
+        print(f"✓ Created {type_name} logs at {log_dir}")
+
+    print(f"\n📁 View logs at: {output_base}")
 
 
 def consolidate_command(args: argparse.Namespace) -> None:
@@ -114,23 +126,44 @@ def consolidate_command(args: argparse.Namespace) -> None:
         raise UnknownTypeError("Consolidate command accepts a single type value")
 
     type_name = type_names[0] if type_names else "python"
-    project_root = Path(args.project_root).resolve()
-    targets = _build_single_targets(config)
+
+    # Handle sample project
+    project_root = Path(__file__).resolve().parent.parent / "sample_project" if args.sample else Path(args.project_root).resolve()
+
+    # Handle custom output directory
+    if args.output_dir:
+        output_base = Path(args.output_dir).resolve()
+        targets = _build_single_targets(config, output_base)
+    else:
+        targets = _build_single_targets(config)
+
     output_path = Path(args.output) if args.output else targets[type_name]
     output_path.parent.mkdir(parents=True, exist_ok=True)
     ignore_patterns = _augment_ignore_patterns(project_root, config)
     consolidate_files(project_root, output_path, SINGLE_TYPE_EXTENSIONS[type_name], ignore_patterns)
-    print(f"Consolidated {type_name} sources into {output_path}")
+    print(f"✓ Consolidated {type_name} sources into {output_path}")
 
 
 def tree_command(args: argparse.Namespace) -> None:
     config = load_config(args.config)
-    project_root = Path(args.project_root).resolve()
-    output_path = Path(args.output) if args.output else (_build_log_paths(config)["single"] / "tree.txt")
+
+    # Handle sample project
+    project_root = Path(__file__).resolve().parent.parent / "sample_project" if args.sample else Path(args.project_root).resolve()
+
+    # Handle custom output directory
+    if args.output_dir:
+        output_base = Path(args.output_dir).resolve()
+        output_path = output_base / "project_tree.txt"
+    elif args.output:
+        output_path = Path(args.output)
+    else:
+        output_base = project_root / "zscripts_logs"
+        output_path = output_base / "project_tree.txt"
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     ignore_patterns = _augment_ignore_patterns(project_root, config)
-    create_filtered_tree(project_root, output_path, ignore_patterns=ignore_patterns)
-    print(f"Wrote project tree to {output_path}")
+    create_filtered_tree(project_root, output_path, ignore_patterns)
+    print(f"✓ Wrote project tree to {output_path}")
 
 
 def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
@@ -143,6 +176,16 @@ def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
         "--project-root",
         default=".",
         help="Root directory to scan (default: current directory)",
+    )
+    subparser.add_argument(
+        "--output-dir",
+        default=None,
+        help="Custom output directory for logs (default: project_root/logs)",
+    )
+    subparser.add_argument(
+        "--sample",
+        action="store_true",
+        help="Run against the included sample project",
     )
 
 
