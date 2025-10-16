@@ -1,47 +1,23 @@
+"""Thin wrapper around :mod:`zscripts.cli` for legacy entry points."""
+
+from __future__ import annotations
+
 import sys
 from pathlib import Path
 
-# Resolve the current script directory
-script_dir = Path(__file__).resolve().parent
 
-# Determine the parent directory where 'zscripts' is located
-parent_dir = script_dir.parent.parent / 'zscripts'
-# Insert the parent directory into the system path to allow importing utils and config modules
-sys.path.insert(0, str(parent_dir))
+def main() -> int:
+    """Delegate to the shared CLI for the ``apps_python`` group."""
 
-# Import necessary functions and configurations
-from utils import load_gitignore_patterns, create_app_logs
-from config import SCRIPT_DIR, PYTHON_LOG_DIR
+    script_dir = Path(__file__).resolve().parent
+    project_root = script_dir.parent.parent
+    if str(project_root) not in sys.path:
+        sys.path.insert(0, str(project_root))
 
-def main():
-    """
-    Main function to create logs for all Python files in the project.
+    from zscripts.cli import main as cli_main
 
-    Steps:
-    1. Determine the project root directory.
-    2. Define and create the logs directory.
-    3. Load ignore patterns from .gitignore.
-    4. Create logs for all Python files, ignoring specified patterns.
-    5. Print the location of the generated logs.
-    """
-    try:
-        # Determine the project root, which is the parent directory of the script directory
-        project_root = SCRIPT_DIR.parent
+    return cli_main(['--group', 'apps_python'])
 
-        # Define the directory where logs will be stored
-        logs_dir = PYTHON_LOG_DIR
-        logs_dir.mkdir(parents=True, exist_ok=True)  # Create the directory if it doesn't exist
 
-        # Load ignore patterns from .gitignore or other sources
-        ignore_patterns = load_gitignore_patterns(project_root)
-
-        # Create logs for all Python files, ignoring specified patterns
-        create_app_logs(project_root, logs_dir, {'.py'}, ignore_patterns)
-
-        # Print the location of the generated logs
-        print(f"Logs for all apps in {project_root} have been created in {logs_dir}")
-    except Exception as e:
-        print(f"An error occurred: {e}")
-
-if __name__ == "__main__":
-    main()
+if __name__ == '__main__':
+    raise SystemExit(main())

@@ -3,7 +3,11 @@ import fnmatch
 from pathlib import Path
 import os
 import re
-from config import SKIP_DIRS, FILE_TYPES
+
+try:  # Prefer package-relative imports but retain compatibility with legacy entry points.
+    from .config import SKIP_DIRS, FILE_TYPES  # type: ignore[attr-defined]
+except ImportError:  # pragma: no cover - fallback for direct script execution
+    from config import SKIP_DIRS, FILE_TYPES  # type: ignore[attr-defined]
 
 def load_gitignore_patterns(root_path):
     """
