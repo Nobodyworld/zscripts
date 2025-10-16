@@ -28,6 +28,18 @@ class Config:
     collection_logs: dict[str, str]
     single_targets: dict[str, str]
 
+    def to_dict(self) -> dict[str, Any]:
+        """Return a JSON-friendly representation of the configuration."""
+
+        return {
+            "skip": list(self.skip),
+            "file_types": dict(self.file_types),
+            "user_ignore_patterns": sorted(self.user_ignore_patterns),
+            "directories": dict(self.directories),
+            "collection_logs": dict(self.collection_logs),
+            "single_targets": dict(self.single_targets),
+        }
+
 
 def _load_raw_config(config_path: Path | None = None) -> dict[str, Any]:
     """Load the JSON configuration file."""

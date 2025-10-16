@@ -27,3 +27,28 @@ def test_file_group_resolver() -> None:
     resolver = get_file_group_resolver()
     assert isinstance(resolver, dict)
     assert "models.py" in resolver
+
+
+def test_config_to_dict_round_trip() -> None:
+    config = get_config()
+    serialized = config.to_dict()
+
+    expected_keys = {
+        "skip",
+        "file_types",
+        "user_ignore_patterns",
+        "directories",
+        "collection_logs",
+        "single_targets",
+    }
+
+    assert set(serialized) == expected_keys
+    assert isinstance(serialized["skip"], list)
+    assert isinstance(serialized["file_types"], dict)
+    assert isinstance(serialized["user_ignore_patterns"], list)
+    assert serialized["user_ignore_patterns"] == sorted(
+        serialized["user_ignore_patterns"]
+    )
+    assert isinstance(serialized["directories"], dict)
+    assert isinstance(serialized["collection_logs"], dict)
+    assert isinstance(serialized["single_targets"], dict)
