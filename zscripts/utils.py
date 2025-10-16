@@ -3,7 +3,7 @@ import fnmatch
 from pathlib import Path
 import os
 import re
-from config import SKIP_DIRS, FILE_TYPES
+from config import SKIP_DIRS
 
 def load_gitignore_patterns(root_path):
     """
