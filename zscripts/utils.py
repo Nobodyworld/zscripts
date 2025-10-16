@@ -72,6 +72,9 @@ def expand_skip_dirs(skip_dirs: Iterable[str]) -> set[str]:
 
     patterns: set[str] = set()
     for skip_dir in skip_dirs:
+        if not isinstance(skip_dir, str):
+            raise TypeError("Skip directory entries must be strings")
+
         cleaned = skip_dir.strip("/")
         if not cleaned:
             continue
@@ -88,13 +91,53 @@ def expand_skip_dirs(skip_dirs: Iterable[str]) -> set[str]:
     return patterns
 
 
-def load_gitignore_patterns(root_path: Path) -> list[str]:
-    """Load ignore patterns from ``.gitignore`` and configuration defaults."""
+def _normalise_user_ignore_patterns(patterns: Iterable[str]) -> set[str]:
+    """Validate and normalise user-provided ignore patterns."""
+
+    normalised: set[str] = set()
+    for pattern in patterns:
+        if not isinstance(pattern, str):
+            raise TypeError("User ignore patterns must be strings")
+
+        stripped = pattern.strip()
+        if not stripped:
+            continue
+        if any(control in stripped for control in ("\n", "\r")):
+            raise ValueError("User ignore patterns cannot contain newline characters")
+
+        normalised.add(stripped)
+    return normalised
+
+
+def load_gitignore_patterns(
+    root_path: Path,
+    *,
+    skip_dirs: Iterable[str] | None = None,
+    user_ignore_patterns: Iterable[str] | None = None,
+) -> list[str]:
+    """Load ignore patterns from ``.gitignore`` and configuration defaults.
+
+    The legacy behaviour – using the globally configured skip directories and
+    user ignore patterns – is preserved when optional arguments are omitted.
+    Passing explicit values allows callers that load custom configuration files
+    to keep the ignore set aligned with their overrides.
+    """
+
+    if not root_path.exists():
+        raise FileNotFoundError(f"Project root does not exist: {root_path}")
+    if not root_path.is_dir():
+        raise NotADirectoryError(f"Project root must be a directory: {root_path}")
 
     gitignore_path = root_path / ".gitignore"
     patterns = set(BASE_IGNORE_PATTERNS)
-    patterns.update(USER_IGNORE_PATTERNS)
-    patterns.update(expand_skip_dirs(SKIP_DIRS))
+
+    expanded_skip_dirs = expand_skip_dirs(skip_dirs or SKIP_DIRS)
+    patterns.update(expanded_skip_dirs)
+
+    if user_ignore_patterns is None:
+        patterns.update(USER_IGNORE_PATTERNS)
+    else:
+        patterns.update(_normalise_user_ignore_patterns(user_ignore_patterns))
 
     if gitignore_path.is_file():
         with gitignore_path.open("r", encoding="utf-8") as file:
