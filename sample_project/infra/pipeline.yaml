@@ -1,0 +1,12 @@
+name: sample-project-ci
+on:
+  push:
+    branches: [main]
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run zscripts aggregation
+        run: |
+          python -m zscripts collect --types python,js --config zscripts.config.json
