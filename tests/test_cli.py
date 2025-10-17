@@ -125,11 +125,19 @@ def test_parse_type_list_whitespace_normalises_fuzz() -> None:
             token = rng.choice(list(COLLECT_TYPE_EXTENSIONS.keys()))
             left = " " * rng.randint(0, 2)
             right = " " * rng.randint(0, 2)
-            segments.append(f"{left}{token}{right}")
+            casing = token.upper() if rng.random() < 0.5 else token
+            segments.append(f"{left}{casing}{right}")
         raw = ",".join(segments)
-        expected = tuple(segment.strip() for segment in raw.split(",") if segment.strip())
+        expected: list[str] = []
+        for segment in raw.split(","):
+            stripped = segment.strip()
+            if not stripped:
+                continue
+            lowered = stripped.lower()
+            if lowered not in expected:
+                expected.append(lowered)
 
-        assert _parse_type_list(raw, allowed=COLLECT_TYPE_EXTENSIONS) == expected
+        assert _parse_type_list(raw, allowed=COLLECT_TYPE_EXTENSIONS) == tuple(expected)
 
 
 def test_parse_type_list_rejects_invalid_values_fuzz() -> None:
@@ -148,3 +156,9 @@ def test_consolidate_type_parser_accepts_known_values() -> None:
     for type_name in SINGLE_TYPE_EXTENSIONS:
         parsed = _parse_type_list(type_name, allowed=SINGLE_TYPE_EXTENSIONS)
         assert parsed == (type_name,)
+
+
+def test_parse_type_list_handles_duplicates_and_case() -> None:
+    raw = "Python, css , PYTHON , Js"
+    parsed = _parse_type_list(raw, allowed=COLLECT_TYPE_EXTENSIONS)
+    assert parsed == ("python", "css", "js")

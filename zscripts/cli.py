@@ -56,13 +56,30 @@ class UnknownTypeError(ValueError):
 
 
 def _parse_type_list(raw: str, *, allowed: Mapping[str, frozenset[str]]) -> tuple[str, ...]:
-    requested = tuple(value.strip() for value in raw.split(",") if value.strip())
-    if not requested:
-        return ()
-    for value in requested:
-        if value not in allowed:
-            raise UnknownTypeError(f"Unsupported type '{value}'. Choose from {sorted(allowed)}")
-    return requested
+    """Normalise and validate a comma separated list of type names.
+
+    The CLI historically accepted only lower-case identifiers exactly matching the
+    keys in *allowed*. This function now treats the input as case-insensitive and
+    silently de-duplicates repeated values while preserving the order of first
+    appearance. These small affordances make the CLI more forgiving when users
+    supply values manually or via environment variables.
+    """
+
+    normalised: list[str] = []
+    seen: set[str] = set()
+    for value in raw.split(","):
+        stripped = value.strip()
+        if not stripped:
+            continue
+        candidate = stripped.lower()
+        if candidate not in allowed:
+            raise UnknownTypeError(
+                f"Unsupported type '{stripped}'. Choose from {sorted(allowed)}"
+            )
+        if candidate not in seen:
+            normalised.append(candidate)
+            seen.add(candidate)
+    return tuple(normalised)
 
 
 def _build_log_paths(config: Config, base_dir: Path | None = None) -> dict[str, Path]:
