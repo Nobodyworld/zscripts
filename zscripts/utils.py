@@ -192,7 +192,7 @@ def _iter_source_files(
             dirs[:] = []
             continue
 
-        dirs[:] = [d for d in dirs if not matcher.matches(relative_root / d)]
+        dirs[:] = sorted(d for d in dirs if not matcher.matches(relative_root / d))
 
         for file_name in sorted(files):
             file_path = root_path / file_name
@@ -212,6 +212,50 @@ def _iter_source_files(
                 continue
 
             yield relative_root, file_path, relative_file
+
+
+def group_source_files_by_app(
+    project_root: Path,
+    extensions: Collection[str],
+    ignore_patterns: Collection[str],
+) -> dict[str, list[Path]]:
+    """Return a mapping of app labels to matching source files."""
+
+    matcher = IgnoreMatcher(ignore_patterns)
+    grouped: dict[str, list[Path]] = {}
+
+    def _sort_key(path: Path) -> str:
+        return path.as_posix()
+
+    for relative_root, _, relative_file in _iter_source_files(project_root, extensions, matcher):
+        app_name = relative_root.parts[0] if relative_root.parts else "root"
+        grouped.setdefault(app_name, []).append(relative_file)
+
+    ordered: dict[str, list[Path]] = {}
+    for app_name in sorted(grouped):
+        ordered[app_name] = sorted(grouped[app_name], key=_sort_key)
+    return ordered
+
+
+def list_matching_source_files(
+    project_root: Path,
+    extensions: Collection[str],
+    ignore_patterns: Collection[str],
+) -> list[Path]:
+    """Return matching source files relative to *project_root* sorted by path."""
+
+    matcher = IgnoreMatcher(ignore_patterns)
+
+    def _sort_key(path: Path) -> str:
+        return path.as_posix()
+
+    return sorted(
+        (
+            relative_file
+            for _, _, relative_file in _iter_source_files(project_root, extensions, matcher)
+        ),
+        key=_sort_key,
+    )
 
 
 def collect_app_logs(
@@ -281,15 +325,17 @@ def consolidate_files(
             output_file.write(f"# {relative_file.as_posix()}\n{content}\n\n")
 
 
-def create_filtered_tree(
+def iter_filtered_tree_lines(
     project_root: Path,
-    output_path: Path,
     ignore_patterns: Collection[str],
     *,
     include_content: bool = True,
     max_bytes: int = 4096,
-) -> None:
-    """Write a filtered tree view of *project_root* to *output_path*."""
+) -> Iterator[str]:
+    """Yield lines representing the filtered tree of *project_root*."""
+
+    if max_bytes < 0:
+        raise ValueError("max_bytes must be non-negative")
 
     matcher = IgnoreMatcher(ignore_patterns)
     root_resolved = project_root.resolve()
@@ -337,10 +383,28 @@ def create_filtered_tree(
                     for line in trimmed.splitlines():
                         yield f"{prefix}│   {line}"
 
+    yield root_resolved.as_posix()
+    yield from _walk_tree(root_resolved)
+
+
+def create_filtered_tree(
+    project_root: Path,
+    output_path: Path,
+    ignore_patterns: Collection[str],
+    *,
+    include_content: bool = True,
+    max_bytes: int = 4096,
+) -> None:
+    """Write a filtered tree view of *project_root* to *output_path*."""
+
     output_path.parent.mkdir(parents=True, exist_ok=True)
     with output_path.open("w", encoding="utf-8") as output_file:
-        output_file.write(f"{root_resolved.as_posix()}\n")
-        for line in _walk_tree(root_resolved):
+        for line in iter_filtered_tree_lines(
+            project_root,
+            ignore_patterns,
+            include_content=include_content,
+            max_bytes=max_bytes,
+        ):
             output_file.write(f"{line}\n")
 
 
@@ -349,7 +413,10 @@ __all__ = [
     "load_gitignore_patterns",
     "expand_skip_dirs",
     "file_matches_any_pattern",
+    "group_source_files_by_app",
+    "list_matching_source_files",
     "collect_app_logs",
     "consolidate_files",
+    "iter_filtered_tree_lines",
     "create_filtered_tree",
 ]
