@@ -29,6 +29,9 @@ def sample_project_path(tmp_path: Path) -> Path:
     frontend = project / "frontend"
     frontend.mkdir()
     (frontend / "App.jsx").write_text("// Frontend app\nconst App = () => <div>Hello</div>;\n")
+    (frontend / "App.tsx").write_text(
+        "// Frontend TSX app\nexport const App = (): JSX.Element => <div>Hello</div>;\n",
+    )
 
     return project
 
@@ -51,6 +54,18 @@ def test_collect_app_logs_ignores_symlinks(sample_project_path: Path, tmp_path: 
     content = backend_log.read_text(encoding="utf-8")
     assert "escape.py" not in content
     assert "service.py" in content
+
+
+def test_collect_app_logs_collects_jsx_and_tsx(
+    sample_project_path: Path, tmp_path: Path
+) -> None:
+    log_dir = tmp_path / "logs"
+    collect_app_logs(sample_project_path, log_dir, {".js", ".jsx", ".ts", ".tsx"}, [])
+
+    frontend_log = log_dir / "frontend.txt"
+    content = frontend_log.read_text(encoding="utf-8")
+    assert "App.jsx" in content
+    assert "App.tsx" in content
 
 
 def test_consolidate_files_handles_uppercase_extensions(

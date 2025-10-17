@@ -71,7 +71,9 @@ usage: python -m zscripts [-h] [--config CONFIG] [--project-root PROJECT_ROOT] {
 
 Generate per-directory logs for one or more stacks. The command accepts a
 comma-separated list of stacks (`python`, `html`, `css`, `js`, `python_html`, or
-`all`).
+`all`). The JavaScript bucket scans modern variants out of the box:
+
+- `js` – `.js`, `.jsx`, `.ts`, `.tsx`
 
 ```bash
 python -m zscripts collect --types python,js --project-root sample_project

@@ -1,6 +1,295 @@
 # __init__.py
 
 
+# backend/__init__.py
+
+
+# backend/models.py
+"""Data models backing the sample project service layer."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from datetime import datetime
+from uuid import uuid4
+
+
+def _now() -> datetime:
+    return datetime.now()
+
+
+def _new_id() -> str:
+    return str(uuid4())
+
+
+@dataclass(slots=True)
+class BaseModel:
+    """Base model that tracks creation and modification timestamps."""
+
+    id: str = field(init=False)
+    created_at: datetime = field(init=False)
+    updated_at: datetime = field(init=False)
+
+    def __post_init__(self) -> None:
+        # Ensure created and updated timestamps start aligned for determinism in tests.
+        now = _now()
+        self.id = _new_id()
+        self.created_at = now
+        self.updated_at = now
+
+    def touch(self) -> None:
+        """Update the ``updated_at`` timestamp to ``now``."""
+
+        self.updated_at = _now()
+
+
+@dataclass(slots=True)
+class User(BaseModel):
+    """User model representing system users."""
+
+    username: str
+    email: str
+    is_active: bool = True
+    role: str = "user"
+
+
+@dataclass(slots=True)
+class Project(BaseModel):
+    """Project model for organising tasks."""
+
+    name: str
+    description: str | None = None
+    owner_id: str = ""
+    status: str = "active"
+    tags: list[str] = field(default_factory=list)
+
+    def add_tag(self, tag: str) -> None:
+        """Attach *tag* to the project if not already present."""
+
+        if tag not in self.tags:
+            self.tags.append(tag)
+            self.touch()
+
+
+@dataclass(slots=True)
+class Task(BaseModel):
+    """Task model with project relationships."""
+
+    title: str
+    description: str | None = None
+    project_id: str = ""
+    assignee_id: str | None = None
+    status: str = "todo"
+    priority: str = "medium"
+    due_date: datetime | None = None
+
+    def mark_complete(self) -> None:
+        """Mark the task as completed."""
+
+        self.status = "done"
+        self.touch()
+
+    def assign_to(self, user_id: str) -> None:
+        """Assign task to a user and refresh timestamps."""
+
+        self.assignee_id = user_id
+        self.touch()
+
+
+# backend/service.py
+"""Service layer for task and project management."""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+
+from .models import Project, Task, User
+
+
+@dataclass(slots=True)
+class TaskService:
+    """Service for managing tasks and projects."""
+
+    tasks: dict[str, Task] = field(default_factory=dict)
+    projects: dict[str, Project] = field(default_factory=dict)
+    users: dict[str, User] = field(default_factory=dict)
+
+    def create_task(
+        self,
+        title: str,
+        description: str | None = None,
+        project_id: str = "",
+        priority: str = "medium",
+    ) -> Task:
+        """Create a new task."""
+        task = Task(
+            title=title,
+            description=description or "",
+            project_id=project_id,
+            priority=priority,
+        )
+        self.tasks[task.id] = task
+        return task
+
+    def get_task(self, task_id: str) -> Task | None:
+        """Get a task by ID."""
+        return self.tasks.get(task_id)
+
+    def list_tasks(self) -> list[Task]:
+        """List all tasks."""
+        return list(self.tasks.values())
+
+    def assign_task(self, task_id: str, user_id: str) -> bool:
+        """Assign a task to a user."""
+        task = self.get_task(task_id)
+        if task is None:
+            return False
+        task.assign_to(user_id)
+        return True
+
+    def mark_task_complete(self, task_id: str) -> Task | None:
+        """Mark a task as complete."""
+        task = self.get_task(task_id)
+        if task:
+            task.mark_complete()
+        return task
+
+    def create_project(self, name: str, description: str | None = None) -> Project:
+        """Create a new project."""
+        project = Project(name=name, description=description or "")
+        self.projects[project.id] = project
+        return project
+
+    def get_project(self, project_id: str) -> Project | None:
+        """Get a project by ID."""
+        return self.projects.get(project_id)
+
+    def list_projects(self) -> list[Project]:
+        """List all projects."""
+        return list(self.projects.values())
+
+    def add_user(self, username: str, email: str) -> User:
+        """Add a new user."""
+        user = User(username=username, email=email)
+        self.users[user.id] = user
+        return user
+
+    def get_user(self, user_id: str) -> User | None:
+        """Get a user by ID."""
+        return self.users.get(user_id)
+
+
+# backend/views.py
+"""Django-style views for the sample project API."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from typing import cast
+
+from .service import TaskService
+
+
+class TaskView:
+    """REST-style view for task operations."""
+
+    def __init__(self, service: TaskService):
+        self.service = service
+
+    def get_tasks(self, project_id: str | None = None) -> list[dict[str, object]]:
+        """Get all tasks, optionally filtered by project."""
+        tasks = self.service.list_tasks()
+        if project_id:
+            tasks = [t for t in tasks if t.project_id == project_id]
+
+        result: list[dict[str, object]] = []
+        for task in tasks:
+            result.append(
+                {
+                    "id": task.id,
+                    "title": task.title,
+                    "description": task.description,
+                    "status": task.status,
+                    "priority": task.priority,
+                    "assignee_id": task.assignee_id,
+                    "project_id": task.project_id,
+                    "created_at": task.created_at.isoformat(),
+                    "updated_at": task.updated_at.isoformat(),
+                }
+            )
+        return result
+
+    def create_task(self, data: Mapping[str, object]) -> dict[str, object]:
+        """Create a new task from request data."""
+        task = self.service.create_task(
+            title=cast(str, data["title"]),
+            description=cast(str | None, data.get("description")),
+            project_id=cast(str, data.get("project_id", "")),
+            priority=cast(str, data.get("priority", "medium")),
+        )
+
+        assignee_value = data.get("assignee_id")
+        if assignee_value is not None:
+            assignee_id = cast(str, assignee_value)
+            self.service.assign_task(task.id, assignee_id)
+
+        return {
+            "id": task.id,
+            "title": task.title,
+            "status": task.status,
+            "created_at": task.created_at.isoformat(),
+        }
+
+    def update_task_status(self, task_id: str, status: str) -> dict[str, object]:
+        """Update a task's status."""
+        if status == "done":
+            task = self.service.mark_task_complete(task_id)
+        else:
+            task = self.service.get_task(task_id)
+            if task:
+                task.status = status
+                task.updated_at = task.created_at  # Simplified
+
+        return {"id": task.id, "status": task.status} if task else {}
+
+
+class ProjectView:
+    """View for project operations."""
+
+    def __init__(self, service: TaskService):
+        self.service = service
+
+    def get_projects(self) -> list[dict[str, object]]:
+        """Get all projects."""
+        projects = self.service.list_projects()
+        result: list[dict[str, object]] = []
+        for project in projects:
+            result.append(
+                {
+                    "id": project.id,
+                    "name": project.name,
+                    "description": project.description,
+                    "status": project.status,
+                    "tags": list(project.tags),
+                    "created_at": project.created_at.isoformat(),
+                }
+            )
+        return result
+
+    def create_project(self, data: Mapping[str, object]) -> dict[str, object]:
+        """Create a new project."""
+        project = self.service.create_project(
+            name=cast(str, data["name"]),
+            description=cast(str | None, data.get("description")),
+        )
+
+        return {
+            "id": project.id,
+            "name": project.name,
+            "status": project.status,
+        }
+
+
 # frontend/App.css
 /* Modern CSS for the Task Management System */
 .app {
@@ -301,293 +590,236 @@
   }
 }
 
-# backend/__init__.py
-
-
-# backend/models.py
-"""Data models backing the sample project service layer."""
-
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-from datetime import datetime
-from uuid import uuid4
-
-
-def _now() -> datetime:
-    return datetime.now()
-
-
-def _new_id() -> str:
-    return str(uuid4())
-
-
-@dataclass(slots=True)
-class BaseModel:
-    """Base model that tracks creation and modification timestamps."""
-
-    id: str = field(init=False)
-    created_at: datetime = field(init=False)
-    updated_at: datetime = field(init=False)
-
-    def __post_init__(self) -> None:
-        # Ensure created and updated timestamps start aligned for determinism in tests.
-        now = _now()
-        self.id = _new_id()
-        self.created_at = now
-        self.updated_at = now
-
-    def touch(self) -> None:
-        """Update the ``updated_at`` timestamp to ``now``."""
-
-        self.updated_at = _now()
-
-
-@dataclass(slots=True)
-class User(BaseModel):
-    """User model representing system users."""
-
-    username: str
-    email: str
-    is_active: bool = True
-    role: str = "user"
-
-
-@dataclass(slots=True)
-class Project(BaseModel):
-    """Project model for organising tasks."""
-
-    name: str
-    description: str | None = None
-    owner_id: str = ""
-    status: str = "active"
-    tags: list[str] = field(default_factory=list)
-
-    def add_tag(self, tag: str) -> None:
-        """Attach *tag* to the project if not already present."""
-
-        if tag not in self.tags:
-            self.tags.append(tag)
-            self.touch()
-
-
-@dataclass(slots=True)
-class Task(BaseModel):
-    """Task model with project relationships."""
-
-    title: str
-    description: str | None = None
-    project_id: str = ""
-    assignee_id: str | None = None
-    status: str = "todo"
-    priority: str = "medium"
-    due_date: datetime | None = None
-
-    def mark_complete(self) -> None:
-        """Mark the task as completed."""
-
-        self.status = "done"
-        self.touch()
-
-    def assign_to(self, user_id: str) -> None:
-        """Assign task to a user and refresh timestamps."""
-
-        self.assignee_id = user_id
-        self.touch()
-
-
-# backend/service.py
-"""Service layer for task and project management."""
-
-from __future__ import annotations
-
-from dataclasses import dataclass, field
-
-from .models import Project, Task, User
-
-
-@dataclass(slots=True)
-class TaskService:
-    """Service for managing tasks and projects."""
-
-    tasks: dict[str, Task] = field(default_factory=dict)
-    projects: dict[str, Project] = field(default_factory=dict)
-    users: dict[str, User] = field(default_factory=dict)
-
-    def create_task(
-        self,
-        title: str,
-        description: str | None = None,
-        project_id: str = "",
-        priority: str = "medium",
-    ) -> Task:
-        """Create a new task."""
-        task = Task(
-            title=title,
-            description=description or "",
-            project_id=project_id,
-            priority=priority,
-        )
-        self.tasks[task.id] = task
-        return task
-
-    def get_task(self, task_id: str) -> Task | None:
-        """Get a task by ID."""
-        return self.tasks.get(task_id)
-
-    def list_tasks(self) -> list[Task]:
-        """List all tasks."""
-        return list(self.tasks.values())
-
-    def assign_task(self, task_id: str, user_id: str) -> bool:
-        """Assign a task to a user."""
-        task = self.get_task(task_id)
-        if task is None:
-            return False
-        task.assign_to(user_id)
-        return True
-
-    def mark_task_complete(self, task_id: str) -> Task | None:
-        """Mark a task as complete."""
-        task = self.get_task(task_id)
-        if task:
-            task.mark_complete()
-        return task
-
-    def create_project(self, name: str, description: str | None = None) -> Project:
-        """Create a new project."""
-        project = Project(name=name, description=description or "")
-        self.projects[project.id] = project
-        return project
-
-    def get_project(self, project_id: str) -> Project | None:
-        """Get a project by ID."""
-        return self.projects.get(project_id)
-
-    def list_projects(self) -> list[Project]:
-        """List all projects."""
-        return list(self.projects.values())
-
-    def add_user(self, username: str, email: str) -> User:
-        """Add a new user."""
-        user = User(username=username, email=email)
-        self.users[user.id] = user
-        return user
-
-    def get_user(self, user_id: str) -> User | None:
-        """Get a user by ID."""
-        return self.users.get(user_id)
-
-
-# backend/views.py
-"""Django-style views for the sample project API."""
-
-from __future__ import annotations
-
-from collections.abc import Mapping
-from typing import cast
-
-from .service import TaskService
-
-
-class TaskView:
-    """REST-style view for task operations."""
-
-    def __init__(self, service: TaskService):
-        self.service = service
-
-    def get_tasks(self, project_id: str | None = None) -> list[dict[str, object]]:
-        """Get all tasks, optionally filtered by project."""
-        tasks = self.service.list_tasks()
-        if project_id:
-            tasks = [t for t in tasks if t.project_id == project_id]
-
-        result: list[dict[str, object]] = []
-        for task in tasks:
-            result.append(
-                {
-                    "id": task.id,
-                    "title": task.title,
-                    "description": task.description,
-                    "status": task.status,
-                    "priority": task.priority,
-                    "assignee_id": task.assignee_id,
-                    "project_id": task.project_id,
-                    "created_at": task.created_at.isoformat(),
-                    "updated_at": task.updated_at.isoformat(),
-                }
-            )
-        return result
-
-    def create_task(self, data: Mapping[str, object]) -> dict[str, object]:
-        """Create a new task from request data."""
-        task = self.service.create_task(
-            title=cast(str, data["title"]),
-            description=cast(str | None, data.get("description")),
-            project_id=cast(str, data.get("project_id", "")),
-            priority=cast(str, data.get("priority", "medium")),
-        )
-
-        assignee_value = data.get("assignee_id")
-        if assignee_value is not None:
-            assignee_id = cast(str, assignee_value)
-            self.service.assign_task(task.id, assignee_id)
-
-        return {
-            "id": task.id,
-            "title": task.title,
-            "status": task.status,
-            "created_at": task.created_at.isoformat(),
-        }
-
-    def update_task_status(self, task_id: str, status: str) -> dict[str, object]:
-        """Update a task's status."""
-        if status == "done":
-            task = self.service.mark_task_complete(task_id)
-        else:
-            task = self.service.get_task(task_id)
-            if task:
-                task.status = status
-                task.updated_at = task.created_at  # Simplified
-
-        return {"id": task.id, "status": task.status} if task else {}
-
-
-class ProjectView:
-    """View for project operations."""
-
-    def __init__(self, service: TaskService):
-        self.service = service
-
-    def get_projects(self) -> list[dict[str, object]]:
-        """Get all projects."""
-        projects = self.service.list_projects()
-        result: list[dict[str, object]] = []
-        for project in projects:
-            result.append(
-                {
-                    "id": project.id,
-                    "name": project.name,
-                    "description": project.description,
-                    "status": project.status,
-                    "tags": list(project.tags),
-                    "created_at": project.created_at.isoformat(),
-                }
-            )
-        return result
-
-    def create_project(self, data: Mapping[str, object]) -> dict[str, object]:
-        """Create a new project."""
-        project = self.service.create_project(
-            name=cast(str, data["name"]),
-            description=cast(str | None, data.get("description")),
-        )
-
-        return {
-            "id": project.id,
-            "name": project.name,
-            "status": project.status,
-        }
+# frontend/App.jsx
+// Comprehensive React task management application demonstrating modern patterns
+import React, { useState, useEffect } from 'react';
+import './App.css';
+
+/**
+ * @typedef {Object} Task
+ * @property {string} id
+ * @property {string} title
+ * @property {string} description
+ * @property {'todo' | 'in_progress' | 'done'} status
+ * @property {'low' | 'medium' | 'high'} priority
+ * @property {string} [assignee_id]
+ * @property {string} project_id
+ * @property {string} created_at
+ * @property {string} updated_at
+ */
+
+/**
+ * @typedef {Object} Project
+ * @property {string} id
+ * @property {string} name
+ * @property {string} description
+ * @property {'active' | 'completed' | 'archived'} status
+ * @property {string[]} tags
+ * @property {string} created_at
+ */
+
+function App() {
+  const [tasks, setTasks] = useState([]);
+  const [projects, setProjects] = useState([]);
+  const [selectedProject, setSelectedProject] = useState('');
+  const [newTaskTitle, setNewTaskTitle] = useState('');
+  const [newTaskDescription, setNewTaskDescription] = useState('');
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const loadData = async () => {
+    try {
+      // Mock API calls - in real app these would fetch from backend
+      const mockTasks = [
+        {
+          id: '1',
+          title: 'Implement user authentication',
+          description: 'Add login/logout functionality with JWT tokens',
+          status: 'in_progress',
+          priority: 'high',
+          project_id: '1',
+          created_at: '2024-01-15T10:00:00Z',
+          updated_at: '2024-01-16T14:30:00Z',
+        },
+        {
+          id: '2',
+          title: 'Design database schema',
+          description: 'Create ER diagram and define table relationships',
+          status: 'done',
+          priority: 'medium',
+          project_id: '1',
+          created_at: '2024-01-10T09:00:00Z',
+          updated_at: '2024-01-12T16:45:00Z',
+        },
+      ];
+
+      const mockProjects = [
+        {
+          id: '1',
+          name: 'Task Management System',
+          description: 'A comprehensive task and project management application',
+          status: 'active',
+          tags: ['react', 'typescript', 'api'],
+          created_at: '2024-01-01T00:00:00Z',
+        },
+      ];
+
+      setTasks(mockTasks);
+      setProjects(mockProjects);
+    } catch (error) {
+      console.error('Failed to load data:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const createTask = async () => {
+    if (!newTaskTitle.trim()) return;
+
+    const newTask = {
+      id: Date.now().toString(),
+      title: newTaskTitle,
+      description: newTaskDescription,
+      status: 'todo',
+      priority: 'medium',
+      project_id: selectedProject || '1',
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString(),
+    };
+
+    setTasks(prev => [...prev, newTask]);
+    setNewTaskTitle('');
+    setNewTaskDescription('');
+  };
+
+  const updateTaskStatus = async (taskId, status) => {
+    setTasks(prev =>
+      prev.map(task =>
+        task.id === taskId
+          ? { ...task, status, updated_at: new Date().toISOString() }
+          : task
+      )
+    );
+  };
+
+  const getStatusColor = (status) => {
+    switch (status) {
+      case 'done': return '#10b981';
+      case 'in_progress': return '#f59e0b';
+      default: return '#6b7280';
+    }
+  };
+
+  const getPriorityColor = (priority) => {
+    switch (priority) {
+      case 'high': return '#ef4444';
+      case 'medium': return '#f59e0b';
+      default: return '#10b981';
+    }
+  };
+
+  if (loading) {
+    return <div className="loading">Loading...</div>;
+  }
+
+  return (
+    <div className="app">
+      <header className="header">
+        <h1>Task Management System</h1>
+        <p>Organize your projects and tasks efficiently</p>
+      </header>
+
+      <div className="content">
+        <div className="projects-section">
+          <h2>Projects</h2>
+          <div className="projects-grid">
+            {projects.map(project => (
+              <div key={project.id} className="project-card">
+                <h3>{project.name}</h3>
+                <p>{project.description}</p>
+                <div className="project-tags">
+                  {project.tags.map(tag => (
+                    <span key={tag} className="tag">{tag}</span>
+                  ))}
+                </div>
+                <span className={`status status-${project.status}`}>
+                  {project.status}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="tasks-section">
+          <div className="tasks-header">
+            <h2>Tasks</h2>
+            <div className="task-form">
+              <input
+                type="text"
+                placeholder="Task title"
+                value={newTaskTitle}
+                onChange={(e) => setNewTaskTitle(e.target.value)}
+                onKeyPress={(e) => e.key === 'Enter' && createTask()}
+              />
+              <textarea
+                placeholder="Task description (optional)"
+                value={newTaskDescription}
+                onChange={(e) => setNewTaskDescription(e.target.value)}
+                rows={2}
+              />
+              <button onClick={createTask}>Add Task</button>
+            </div>
+          </div>
+
+          <div className="tasks-grid">
+            {tasks.map(task => (
+              <div key={task.id} className="task-card">
+                <div className="task-header">
+                  <h3>{task.title}</h3>
+                  <span
+                    className="priority-badge"
+                    style={{ backgroundColor: getPriorityColor(task.priority) }}
+                  >
+                    {task.priority}
+                  </span>
+                </div>
+                {task.description && (
+                  <p className="task-description">{task.description}</p>
+                )}
+                <div className="task-footer">
+                  <select
+                    value={task.status}
+                    onChange={(e) => updateTaskStatus(task.id, e.target.value)}
+                    style={{ backgroundColor: getStatusColor(task.status) }}
+                  >
+                    <option value="todo">To Do</option>
+                    <option value="in_progress">In Progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                  <span className="task-date">
+                    {new Date(task.created_at).toLocaleDateString()}
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+export default App;
+
+
+# frontend/App.tsx
+// Sample TypeScript React component used for CLI integration tests.
+export const App = (): JSX.Element => {
+  return <div>Sample TypeScript view</div>;
+};
 
 
 # scripts/manage_db.py
