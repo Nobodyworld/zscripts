@@ -14,6 +14,9 @@ from .utils import (
     collect_app_logs,
     consolidate_files,
     create_filtered_tree,
+    group_source_files_by_app,
+    iter_filtered_tree_lines,
+    list_matching_source_files,
     load_gitignore_patterns,
 )
 
@@ -75,9 +78,7 @@ def _parse_type_list(raw: str, *, allowed: Mapping[str, frozenset[str]]) -> tupl
             continue
         candidate = stripped.lower()
         if candidate not in allowed:
-            raise UnknownTypeError(
-                f"Unsupported type '{stripped}'. Choose from {sorted(allowed)}"
-            )
+            raise UnknownTypeError(f"Unsupported type '{stripped}'. Choose from {sorted(allowed)}")
         if candidate not in seen:
             normalised.append(candidate)
             seen.add(candidate)
@@ -140,6 +141,7 @@ def collect_command(args: argparse.Namespace) -> None:
     types_arg = cast(str, getattr(args, "types", "python"))
     output_dir_arg = cast(str | None, getattr(args, "output_dir", None))
     sample_flag = cast(bool, getattr(args, "sample", False))
+    dry_run = cast(bool, getattr(args, "dry_run", False))
 
     LOGGER.info("event=collect start project_root=%s", project_root_arg)
     config = load_config(config_arg)
@@ -156,13 +158,41 @@ def collect_command(args: argparse.Namespace) -> None:
 
     print(f"Scanning project: {project_root}")
     print(f"Output directory: {base_output_dir}")
+    if dry_run:
+        print("Dry run enabled: no files will be written.\n")
 
     for type_name in type_names:
         log_dir = log_paths[type_name]
+        if dry_run:
+            grouped = group_source_files_by_app(
+                project_root,
+                COLLECT_TYPE_EXTENSIONS[type_name],
+                ignore_patterns,
+            )
+            LOGGER.info("event=collect_planned type=%s output=%s", type_name, log_dir)
+            print(f"• {type_name} -> {log_dir}")
+            if not grouped:
+                print("  - No matching files found")
+            else:
+                for app_name, files in grouped.items():
+                    print(f"  - [{app_name}]")
+                    for relative_path in files:
+                        print(f"    {relative_path.as_posix()}")
+            continue
+
         log_dir.mkdir(parents=True, exist_ok=True)
-        collect_app_logs(project_root, log_dir, COLLECT_TYPE_EXTENSIONS[type_name], ignore_patterns)
+        collect_app_logs(
+            project_root,
+            log_dir,
+            COLLECT_TYPE_EXTENSIONS[type_name],
+            ignore_patterns,
+        )
         LOGGER.info("event=collect_completed type=%s output=%s", type_name, log_dir)
         print(f"✓ Created {type_name} logs at {log_dir}")
+
+    if dry_run:
+        print(f"\n📝 Dry run complete. Planned logs directory: {base_output_dir}")
+        return
 
     print(f"\n📁 View logs at: {base_output_dir}")
 
@@ -174,6 +204,7 @@ def consolidate_command(args: argparse.Namespace) -> None:
     output_dir_arg = cast(str | None, getattr(args, "output_dir", None))
     output_arg = cast(str | None, getattr(args, "output", None))
     sample_flag = cast(bool, getattr(args, "sample", False))
+    dry_run = cast(bool, getattr(args, "dry_run", False))
 
     LOGGER.info("event=consolidate start project_root=%s", project_root_arg)
     config = load_config(config_arg)
@@ -188,9 +219,28 @@ def consolidate_command(args: argparse.Namespace) -> None:
     targets = _build_single_targets(config, output_base)
 
     output_path = Path(output_arg).expanduser().resolve() if output_arg else targets[type_name]
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     ignore_patterns = _augment_ignore_patterns(project_root, config)
-    consolidate_files(project_root, output_path, SINGLE_TYPE_EXTENSIONS[type_name], ignore_patterns)
+    if dry_run:
+        planned = list_matching_source_files(
+            project_root,
+            SINGLE_TYPE_EXTENSIONS[type_name],
+            ignore_patterns,
+        )
+        LOGGER.info("event=consolidate_planned type=%s output=%s", type_name, output_path)
+        print(f"Dry run: would consolidate {len(planned)} files into {output_path}")
+        for relative_path in planned:
+            print(f"  - {relative_path.as_posix()}")
+        if not planned:
+            print("  (no matching files found)")
+        return
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    consolidate_files(
+        project_root,
+        output_path,
+        SINGLE_TYPE_EXTENSIONS[type_name],
+        ignore_patterns,
+    )
     LOGGER.info("event=consolidate_completed type=%s output=%s", type_name, output_path)
     print(f"✓ Consolidated {type_name} sources into {output_path}")
 
@@ -202,6 +252,7 @@ def tree_command(args: argparse.Namespace) -> None:
     output_arg = cast(str | None, getattr(args, "output", None))
     include_contents = cast(bool, getattr(args, "include_contents", False))
     sample_flag = cast(bool, getattr(args, "sample", False))
+    dry_run = cast(bool, getattr(args, "dry_run", False))
 
     LOGGER.info("event=tree start project_root=%s", project_root_arg)
     config = load_config(config_arg)
@@ -216,8 +267,19 @@ def tree_command(args: argparse.Namespace) -> None:
         default_base = next(iter(_build_log_paths(config).values())).parent
         output_path = default_base / "project_tree.txt"
 
-    output_path.parent.mkdir(parents=True, exist_ok=True)
     ignore_patterns = _augment_ignore_patterns(project_root, config)
+    if dry_run:
+        LOGGER.info("event=tree_planned output=%s", output_path)
+        print(f"Dry run: would write project tree to {output_path}")
+        for line in iter_filtered_tree_lines(
+            project_root,
+            ignore_patterns,
+            include_content=include_contents,
+        ):
+            print(line)
+        return
+
+    output_path.parent.mkdir(parents=True, exist_ok=True)
     create_filtered_tree(
         project_root,
         output_path,
@@ -248,6 +310,16 @@ def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
         "--sample",
         action="store_true",
         help="Run against the included sample project",
+    )
+    subparser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Preview actions without writing any files",
+    )
+    subparser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Enable verbose logging for troubleshooting",
     )
 
 
@@ -302,6 +374,11 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Sequence[str] | None = None) -> int:
     parser = build_parser()
     args = parser.parse_args(argv)
+
+    verbose_flag = cast(bool, getattr(args, "verbose", False))
+    log_level = logging.INFO if verbose_flag else logging.WARNING
+    logging.basicConfig(level=log_level, format="%(levelname)s %(name)s %(message)s")
+    logging.getLogger().setLevel(log_level)
 
     command = cast(str, getattr(args, "command", ""))
     handler: Callable[[argparse.Namespace], None] | None = getattr(args, "func", None)

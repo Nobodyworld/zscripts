@@ -102,6 +102,85 @@ def test_cli_tree_respects_include_contents(sample_project_path: Path, tmp_path:
     assert "service.py" in content
 
 
+def test_cli_collect_dry_run_skips_writes(
+    sample_project_path: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output_dir = tmp_path / "preview"
+
+    exit_code = cli_main(
+        [
+            "collect",
+            "--types",
+            "python",
+            "--project-root",
+            str(sample_project_path),
+            "--output-dir",
+            str(output_dir),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert not output_dir.exists()
+    assert "Dry run enabled" in captured.out
+    assert "backend/service.py" in captured.out
+
+
+def test_cli_consolidate_dry_run_lists_files(
+    sample_project_path: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    output = tmp_path / "python.txt"
+
+    exit_code = cli_main(
+        [
+            "consolidate",
+            "--types",
+            "python",
+            "--project-root",
+            str(sample_project_path),
+            "--output",
+            str(output),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert not output.exists()
+    assert "would consolidate" in captured.out
+    assert "backend/service.py" in captured.out
+
+
+def test_cli_tree_dry_run_prints_preview(
+    sample_project_path: Path,
+    tmp_path: Path,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    tree_path = tmp_path / "tree.txt"
+
+    exit_code = cli_main(
+        [
+            "tree",
+            "--project-root",
+            str(sample_project_path),
+            "--output",
+            str(tree_path),
+            "--dry-run",
+        ]
+    )
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert not tree_path.exists()
+    assert "Dry run: would write project tree" in captured.out
+    assert sample_project_path.resolve().as_posix() in captured.out
+
+
 def test_cli_rejects_unknown_type(
     sample_project_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:

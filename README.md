@@ -67,6 +67,10 @@ Each command respects the configuration file described above.
 usage: python -m zscripts [-h] [--config CONFIG] [--project-root PROJECT_ROOT] {collect,consolidate,tree} ...
 ```
 
+All subcommands share `--dry-run` and `--verbose` switches. `--dry-run` previews
+the files that would be written without touching the filesystem. `--verbose`
+escalates logging to `INFO` level for easier troubleshooting.
+
 ### `collect`
 
 Generate per-directory logs for one or more stacks. The command accepts a
@@ -80,6 +84,11 @@ python -m zscripts collect --types python,js --project-root sample_project
 ```
 
 Logs are written to the directories declared in `collection_logs`.
+Use `--dry-run` to preview the grouped files without creating any logs:
+
+```bash
+python -m zscripts collect --types python --project-root sample_project --dry-run
+```
 
 ### `consolidate`
 
@@ -90,7 +99,13 @@ python -m zscripts consolidate --types python --output /tmp/project-python.txt
 ```
 
 When no output file is supplied, the command falls back to the
-`single_targets` configuration entry.
+`single_targets` configuration entry. Combine `--dry-run` with either the
+default target or a custom `--output` path to inspect the ordered file list
+before writing:
+
+```bash
+python -m zscripts consolidate --types python --project-root sample_project --dry-run
+```
 
 ### `tree`
 
@@ -102,7 +117,8 @@ bodies when needed.
 python -m zscripts tree --project-root sample_project --output /tmp/tree.txt --include-contents
 ```
 This is useful when you need a contextual code review bundle or want to capture
-changes across multiple stacks in a single artifact.
+changes across multiple stacks in a single artifact. Pass `--dry-run` to emit
+the planned tree directly to STDOUT without writing an output file.
 
 ## Verification Checklist
 

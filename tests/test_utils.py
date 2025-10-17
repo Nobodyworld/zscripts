@@ -13,6 +13,9 @@ from zscripts.utils import (
     consolidate_files,
     create_filtered_tree,
     expand_skip_dirs,
+    group_source_files_by_app,
+    iter_filtered_tree_lines,
+    list_matching_source_files,
     load_gitignore_patterns,
 )
 
@@ -56,9 +59,7 @@ def test_collect_app_logs_ignores_symlinks(sample_project_path: Path, tmp_path: 
     assert "service.py" in content
 
 
-def test_collect_app_logs_collects_jsx_and_tsx(
-    sample_project_path: Path, tmp_path: Path
-) -> None:
+def test_collect_app_logs_collects_jsx_and_tsx(sample_project_path: Path, tmp_path: Path) -> None:
     log_dir = tmp_path / "logs"
     collect_app_logs(sample_project_path, log_dir, {".js", ".jsx", ".ts", ".tsx"}, [])
 
@@ -177,3 +178,59 @@ def test_expand_skip_dirs_requires_string_entries() -> None:
 
     with pytest.raises(TypeError):
         expand_skip_dirs(CustomIterable())
+
+
+def test_group_source_files_by_app_returns_sorted(sample_project_path: Path) -> None:
+    mapping = group_source_files_by_app(
+        sample_project_path,
+        {".py", ".jsx", ".tsx"},
+        [],
+    )
+
+    assert set(mapping) == {"backend", "frontend"}
+    assert mapping["backend"] == [Path("backend/service.py")]
+    assert mapping["frontend"] == [
+        Path("frontend/App.jsx"),
+        Path("frontend/App.tsx"),
+    ]
+
+
+def test_list_matching_source_files_produces_relative_paths(
+    sample_project_path: Path,
+) -> None:
+    extra = sample_project_path / "backend" / "extra.PY"
+    extra.write_text("print('extra')\n", encoding="utf-8")
+
+    files = list_matching_source_files(sample_project_path, {".py"}, [])
+
+    assert files == sorted(files, key=lambda path: path.as_posix())
+    assert Path("backend/extra.PY") in files
+
+
+def test_iter_filtered_tree_lines_supports_dry_run_preview(
+    sample_project_path: Path,
+) -> None:
+    lines = list(
+        iter_filtered_tree_lines(
+            sample_project_path,
+            [],
+            include_content=False,
+        )
+    )
+
+    assert lines[0] == sample_project_path.resolve().as_posix()
+    assert any("backend" in line for line in lines)
+
+
+def test_iter_filtered_tree_lines_rejects_negative_limits(
+    sample_project_path: Path,
+) -> None:
+    with pytest.raises(ValueError):
+        list(
+            iter_filtered_tree_lines(
+                sample_project_path,
+                [],
+                include_content=False,
+                max_bytes=-1,
+            )
+        )
