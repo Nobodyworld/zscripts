@@ -23,6 +23,8 @@ ERROR_ID_UNKNOWN_TYPE = "CLI001"
 ERROR_ID_PROJECT_ROOT = "CLI002"
 ERROR_ID_RUNTIME = "CLI999"
 
+JAVASCRIPT_EXTENSIONS = (".js", ".jsx", ".ts", ".tsx")
+
 
 def _normalise_extensions(source: Mapping[str, Iterable[str]]) -> dict[str, frozenset[str]]:
     return {key: frozenset(ext.lower() for ext in value) for key, value in source.items()}
@@ -33,9 +35,9 @@ COLLECT_TYPE_EXTENSIONS = _normalise_extensions(
         "python": (".py",),
         "html": (".html",),
         "css": (".css",),
-        "js": (".js",),
+        "js": JAVASCRIPT_EXTENSIONS,
         "python_html": (".py", ".html"),
-        "all": (".py", ".html", ".js", ".css"),
+        "all": (".py", ".html", ".css", *JAVASCRIPT_EXTENSIONS),
     }
 )
 
@@ -44,9 +46,9 @@ SINGLE_TYPE_EXTENSIONS = _normalise_extensions(
         "python": (".py",),
         "html": (".html",),
         "css": (".css",),
-        "js": (".js",),
+        "js": JAVASCRIPT_EXTENSIONS,
         "python_html": (".py", ".html"),
-        "any": (".py", ".html", ".js", ".css"),
+        "any": (".py", ".html", ".css", *JAVASCRIPT_EXTENSIONS),
     }
 )
 

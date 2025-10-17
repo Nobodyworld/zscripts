@@ -61,6 +61,27 @@ def test_cli_consolidate_writes_file(sample_project_path: Path, tmp_path: Path) 
     assert "backend" in output.read_text(encoding="utf-8")
 
 
+def test_cli_consolidate_includes_js_variants(sample_project_path: Path, tmp_path: Path) -> None:
+    output = tmp_path / "javascript.txt"
+
+    exit_code = cli_main(
+        [
+            "consolidate",
+            "--types",
+            "js",
+            "--project-root",
+            str(sample_project_path),
+            "--output",
+            str(output),
+        ]
+    )
+
+    assert exit_code == 0
+    content = output.read_text(encoding="utf-8")
+    assert "App.jsx" in content
+    assert "App.tsx" in content
+
+
 def test_cli_tree_respects_include_contents(sample_project_path: Path, tmp_path: Path) -> None:
     tree_path = tmp_path / "tree.txt"
 
