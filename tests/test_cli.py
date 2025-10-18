@@ -78,8 +78,14 @@ def test_cli_consolidate_includes_js_variants(sample_project_path: Path, tmp_pat
 
     assert exit_code == 0
     content = output.read_text(encoding="utf-8")
+    assert "App.js" in content
     assert "App.jsx" in content
+    assert "App.mjs" in content
+    assert "App.cjs" in content
+    assert "App.ts" in content
     assert "App.tsx" in content
+    assert "App.mts" in content
+    assert "App.cts" in content
 
 
 def test_cli_tree_respects_include_contents(sample_project_path: Path, tmp_path: Path) -> None:

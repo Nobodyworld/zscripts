@@ -26,7 +26,16 @@ ERROR_ID_UNKNOWN_TYPE = "CLI001"
 ERROR_ID_PROJECT_ROOT = "CLI002"
 ERROR_ID_RUNTIME = "CLI999"
 
-JAVASCRIPT_EXTENSIONS = (".js", ".jsx", ".ts", ".tsx")
+JAVASCRIPT_EXTENSIONS = (
+    ".js",
+    ".jsx",
+    ".mjs",
+    ".cjs",
+    ".ts",
+    ".tsx",
+    ".mts",
+    ".cts",
+)
 
 
 def _normalise_extensions(source: Mapping[str, Iterable[str]]) -> dict[str, frozenset[str]]:
