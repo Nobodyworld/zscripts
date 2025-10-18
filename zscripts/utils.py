@@ -21,6 +21,8 @@ class IgnoreMatcher:
         for pattern in patterns:
             compiled.append((pattern, re.compile(fnmatch.translate(pattern))))
         self._compiled: Final = compiled
+        # TODO - Support gitwildmatch semantics to align with .gitignore behavior.
+        # TODO - Cache translated patterns globally to reduce repeated regex compilation.
 
     def matches(self, path: Path | str) -> bool:
         """Return ``True`` if *path* matches any configured ignore pattern."""
@@ -78,6 +80,7 @@ def expand_skip_dirs(skip_dirs: Iterable[str]) -> set[str]:
         cleaned = skip_dir.strip("/")
         if not cleaned:
             continue
+        # TODO - Preserve ordering to make debugging merged skip patterns easier.
         patterns.update(
             {
                 cleaned,
@@ -106,6 +109,7 @@ def _normalise_user_ignore_patterns(patterns: Iterable[str]) -> set[str]:
             raise ValueError("User ignore patterns cannot contain newline characters")
 
         normalised.add(stripped)
+    # TODO - Persist custom ignore patterns alongside generated logs for auditing.
     return normalised
 
 
@@ -145,6 +149,8 @@ def load_gitignore_patterns(
                 stripped_line = line.strip()
                 if stripped_line and not stripped_line.startswith("#"):
                     patterns.add(stripped_line)
+    # TODO - Cache resolved ignore sets per root_path to avoid redundant disk reads.
+    # TODO - Include patterns from .git/info/exclude for parity with Git defaults.
     return sorted(patterns)
 
 
@@ -193,6 +199,7 @@ def _iter_source_files(
             continue
 
         dirs[:] = sorted(d for d in dirs if not matcher.matches(relative_root / d))
+        # TODO - Allow callers to provide a custom directory sort key for stability.
 
         for file_name in sorted(files):
             file_path = root_path / file_name
@@ -212,6 +219,7 @@ def _iter_source_files(
                 continue
 
             yield relative_root, file_path, relative_file
+            # TODO - Surface per-file timing metrics to help spot slow directories.
 
 
 def group_source_files_by_app(
@@ -295,6 +303,7 @@ def collect_app_logs(
                 continue
 
             handle.write(f"# {relative_file.as_posix()}\n{content}\n\n")
+            # TODO - Allow configurable separators to ease downstream parsing.
     finally:
         for handle in handles.values():
             handle.close()
@@ -323,6 +332,7 @@ def consolidate_files(
                 )
                 continue
             output_file.write(f"# {relative_file.as_posix()}\n{content}\n\n")
+            # TODO - Stream writes incrementally to support multi-gigabyte projects.
 
 
 def iter_filtered_tree_lines(
@@ -339,6 +349,7 @@ def iter_filtered_tree_lines(
 
     matcher = IgnoreMatcher(ignore_patterns)
     root_resolved = project_root.resolve()
+    # TODO - Make max_bytes configurable per file type for more granular control.
 
     def _walk_tree(current: Path, prefix: str = "") -> Iterator[str]:
         try:

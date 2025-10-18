@@ -42,6 +42,7 @@ def _normalise_extensions(source: Mapping[str, Iterable[str]]) -> dict[str, froz
     return {key: frozenset(ext.lower() for ext in value) for key, value in source.items()}
 
 
+# TODO - Deduplicate extension presets with SINGLE_TYPE_EXTENSIONS to avoid drift.
 COLLECT_TYPE_EXTENSIONS = _normalise_extensions(
     {
         "python": (".py",),
@@ -53,6 +54,7 @@ COLLECT_TYPE_EXTENSIONS = _normalise_extensions(
     }
 )
 
+# TODO - Allow configuration to define custom single file extension groups.
 SINGLE_TYPE_EXTENSIONS = _normalise_extensions(
     {
         "python": (".py",),
@@ -79,6 +81,7 @@ def _parse_type_list(raw: str, *, allowed: Mapping[str, frozenset[str]]) -> tupl
     supply values manually or via environment variables.
     """
 
+    # TODO - Offer suggestions for close matches when a type name is unknown.
     normalised: list[str] = []
     seen: set[str] = set()
     for value in raw.split(","):
@@ -98,6 +101,7 @@ def _build_log_paths(config: Config, base_dir: Path | None = None) -> dict[str, 
     resolved = resolve_paths(config)
     root = base_dir or resolved.log_dir
     logs = config.collection_logs
+    # TODO - Validate configured log filenames to flag characters invalid on Windows.
     return {
         "all": root / logs.get("all", "logs_apps_all"),
         "python": root / logs.get("python", "logs_apps_pyth"),
@@ -114,6 +118,7 @@ def _build_single_targets(config: Config, base_dir: Path | None = None) -> dict[
     root = base_dir or resolved.single_log_dir.parent
     single_dir = root / config.collection_logs.get("single", "logs_single_files")
     targets = config.single_targets
+    # TODO - Consolidate target naming with COLLECT_TYPE_EXTENSIONS for shared typing.
     return {
         "python": single_dir / targets.get("python", "capture_all_pyth.txt"),
         "html": single_dir / targets.get("html", "capture_all_html.txt"),
@@ -138,6 +143,7 @@ def _resolve_project_root(raw_root: str, *, sample: bool) -> Path:
     else:
         project_root = Path(raw_root).expanduser()
 
+    # TODO - Preserve the original user input in error messages for clarity.
     resolved = project_root.resolve()
     if not resolved.exists():
         raise FileNotFoundError(f"Project root does not exist: {resolved}")
@@ -161,10 +167,13 @@ def collect_command(args: argparse.Namespace) -> None:
     project_root = _resolve_project_root(project_root_arg, sample=sample_flag)
     output_base = Path(output_dir_arg).expanduser().resolve() if output_dir_arg else None
 
+    # TODO - Cache log path calculations when invoked repeatedly within same process.
     log_paths = _build_log_paths(config, output_base)
     base_output_dir = next(iter(log_paths.values())).parent
     ignore_patterns = _augment_ignore_patterns(project_root, config)
 
+    # TODO - Route user-facing output through a reporter abstraction for testability.
+    # TODO - Emit periodic progress updates for long scans to reassure users.
     print(f"Scanning project: {project_root}")
     print(f"Output directory: {base_output_dir}")
     if dry_run:
@@ -227,6 +236,7 @@ def consolidate_command(args: argparse.Namespace) -> None:
     output_base = Path(output_dir_arg).expanduser().resolve() if output_dir_arg else None
     targets = _build_single_targets(config, output_base)
 
+    # TODO - Accept stdout target ("-") for piping consolidated content.
     output_path = Path(output_arg).expanduser().resolve() if output_arg else targets[type_name]
     ignore_patterns = _augment_ignore_patterns(project_root, config)
     if dry_run:
@@ -277,6 +287,8 @@ def tree_command(args: argparse.Namespace) -> None:
         output_path = default_base / "project_tree.txt"
 
     ignore_patterns = _augment_ignore_patterns(project_root, config)
+    # TODO - Allow include/exclude filters to be provided at runtime for tree snapshots.
+    # TODO - Offer machine-readable output (JSON/NDJSON) alongside the text tree view.
     if dry_run:
         LOGGER.info("event=tree_planned output=%s", output_path)
         print(f"Dry run: would write project tree to {output_path}")
@@ -360,6 +372,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--output",
         help="Optional custom output path for the consolidated log",
     )
+    # TODO - Support --append flag to accumulate new snapshots instead of overwriting.
     consolidate_parser.set_defaults(func=consolidate_command)
 
     tree_parser = subparsers.add_parser(
@@ -386,6 +399,7 @@ def main(argv: Sequence[str] | None = None) -> int:
 
     verbose_flag = cast(bool, getattr(args, "verbose", False))
     log_level = logging.INFO if verbose_flag else logging.WARNING
+    # TODO - Switch to structured logging to ease downstream ingestion.
     logging.basicConfig(level=log_level, format="%(levelname)s %(name)s %(message)s")
     logging.getLogger().setLevel(log_level)
 

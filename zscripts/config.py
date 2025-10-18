@@ -10,6 +10,7 @@ from types import MappingProxyType
 from typing import TypeAlias, TypedDict, cast
 
 SCRIPT_DIR = Path(__file__).resolve().parent
+# TODO - Allow environment variable override for the default configuration path.
 DEFAULT_CONFIG_PATH = SCRIPT_DIR.parent / "zscripts.config.json"
 
 JSONPrimitive: TypeAlias = str | int | float | bool | None
@@ -86,6 +87,7 @@ def _load_raw_config(config_path: Path | None = None) -> dict[str, JSONValue]:
 
     if not isinstance(data, dict):
         raise RuntimeError("Configuration root must be a JSON object")
+    # TODO - Provide guidance when unknown top-level keys are encountered.
     return cast(dict[str, JSONValue], data)
 
 
@@ -103,6 +105,7 @@ def _ensure_iterable_of_strings(value: JSONValue | None, *, name: str) -> tuple[
         normalised = item.strip()
         if normalised and normalised not in seen:
             seen.append(normalised)
+        # TODO - Emit warnings when duplicate values are suppressed during normalisation.
     return tuple(seen)
 
 
@@ -167,6 +170,7 @@ def _merge_config_data(defaults: Config, overrides: Config) -> Config:
     single_targets = dict(defaults.single_targets)
     single_targets.update(overrides.single_targets)
 
+    # TODO - Track the provenance of merged settings for better diagnostics.
     return Config(
         skip=skip,
         file_types=_freeze_mapping(file_types),
@@ -185,6 +189,7 @@ def resolve_paths(config: Config, *, base_dir: Path | None = None) -> ResolvedPa
     build_dir = log_dir / config.directories.get("build", "build_files")
     consolidation_dir = log_dir / config.directories.get("consolidation", "consoli_files")
     work_dir = log_dir / config.directories.get("work", "logs_files")
+    # TODO - Validate that derived directories do not escape the configured root_dir.
 
     all_log_dir = log_dir / config.collection_logs.get("all", "logs_apps_all")
     python_log_dir = log_dir / config.collection_logs.get("python", "logs_apps_pyth")
@@ -229,6 +234,7 @@ def resolve_paths(config: Config, *, base_dir: Path | None = None) -> ResolvedPa
     )
 
 
+# TODO - Lazily load defaults to avoid filesystem I/O during module import.
 _DEFAULT_CONFIG = _normalise_raw_config(_load_raw_config())
 _PATHS = resolve_paths(_DEFAULT_CONFIG)
 
@@ -264,6 +270,7 @@ def load_config(path: Path | str | None = None) -> Config:
 
     override_path = Path(path)
     overrides = _normalise_raw_config(_load_raw_config(override_path))
+    # TODO - Surface partial validation errors instead of failing the entire load.
     return _merge_config_data(_DEFAULT_CONFIG, overrides)
 
 
