@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Share HTML consolidate behavior with multi-stack orchestration layer.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``single_html`` group."""

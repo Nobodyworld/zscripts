@@ -28,6 +28,8 @@ SINGLE_WRAPPERS = (
     "zscripts.all_single.single_pyth",
 )
 
+# TODO - Validate wrapper deprecation warnings once transition path is defined.
+
 
 def _prepare_sample_project(tmp_path: Path) -> Path:
     """Copy the bundled sample project into a temporary directory."""

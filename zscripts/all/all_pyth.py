@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Replace legacy entry point with console_scripts metadata shim.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``apps_python`` group."""

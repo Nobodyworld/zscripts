@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Remove bespoke JS launcher when consolidate command gains presets.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``single_js`` group."""

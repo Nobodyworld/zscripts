@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Route JS wrapper through a shared dispatcher to reduce duplication.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``apps_js`` group."""

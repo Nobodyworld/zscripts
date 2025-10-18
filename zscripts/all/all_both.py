@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Merge dual-stack entry point with primary CLI command table.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``apps_python_html`` group."""

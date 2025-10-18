@@ -19,6 +19,8 @@ def _load_config_helpers():
     module = importlib.import_module("zscripts.config")
     return module.Config, module.get_config, module.load_config
 
+# TODO - Replace sys.path mutation with a dedicated test helper package.
+
 
 @pytest.fixture(scope="session")
 def repository_root() -> Path:
