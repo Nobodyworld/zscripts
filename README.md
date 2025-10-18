@@ -77,7 +77,7 @@ Generate per-directory logs for one or more stacks. The command accepts a
 comma-separated list of stacks (`python`, `html`, `css`, `js`, `python_html`, or
 `all`). The JavaScript bucket scans modern variants out of the box:
 
-- `js` – `.js`, `.jsx`, `.ts`, `.tsx`
+- `js` – `.js`, `.jsx`, `.mjs`, `.cjs`, `.ts`, `.tsx`, `.mts`, `.cts`
 
 ```bash
 python -m zscripts collect --types python,js --project-root sample_project

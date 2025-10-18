@@ -9,8 +9,8 @@
 - **Tooling** – `pyproject.toml` defines Ruff, pytest, mypy (strict), and coverage; Makefile wraps lint/type/test commands.
 
 ## Key Findings
-1. **Extension coverage gap:** `COLLECT_TYPE_EXTENSIONS` and `SINGLE_TYPE_EXTENSIONS` only include `.js` for JavaScript despite the README promising JSX/TypeScript support. The bundled sample project ships `frontend/App.jsx`, yet current collectors skip it; `.ts`/`.tsx` are also absent, undermining advertised cross-stack coverage.
-2. **Doc drift:** README markets TypeScript handling, but implementation/tests never exercise those extensions, so regressions could go unnoticed.
+1. **Expanded JavaScript coverage:** `COLLECT_TYPE_EXTENSIONS` and `SINGLE_TYPE_EXTENSIONS` now recognise modern JavaScript module variants (`.mjs`, `.cjs`) alongside both TypeScript and TSX (`.ts`, `.tsx`, `.mts`, `.cts`). The sample project and CLI/utility tests assert these extensions are collected so documentation and behaviour stay aligned.
+2. **Doc drift resolved:** README and tests both enumerate the supported extension list, keeping expectations in sync with runtime behaviour.
 3. **Legacy wrappers:** Modules under `zscripts/all*` import the CLI, so CLI regressions cascade into older entry points. Any change to extension sets must consider these wrappers to avoid surprise behavior changes.
 
 ## Risk Notes
@@ -19,7 +19,7 @@
 - Sample project mutations affect multiple tests; need to update fixtures carefully to keep expectations accurate.
 
 ## Test Posture
-- Pytest suite (40 tests) covers config immutability, CLI commands, ignore handling, and legacy wrappers. No direct assertions for JSX/TypeScript capture.
+- Pytest suite (49 tests) covers config immutability, CLI commands, ignore handling, and legacy wrappers. No direct assertions for JSX/TypeScript capture.
 - Property-based fuzz cases exist for type parsing and skip-dir expansion; good defensive coverage, but file-type collection lacks regression tests.
 
 ## CI/CD Posture
@@ -31,4 +31,4 @@
 - **Test & Verify** – Add regression tests that cover the expanded extension handling to guard future changes.
 
 ## Verification
-- `pytest -q` (42 passed) – validates CLI/util changes with new JavaScript variant coverage.
+- `pytest` (49 passed) – validates CLI/util changes with current configuration defaults.

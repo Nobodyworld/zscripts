@@ -31,10 +31,19 @@ def sample_project_path(tmp_path: Path) -> Path:
 
     frontend = project / "frontend"
     frontend.mkdir()
-    (frontend / "App.jsx").write_text("// Frontend app\nconst App = () => <div>Hello</div>;\n")
-    (frontend / "App.tsx").write_text(
-        "// Frontend TSX app\nexport const App = (): JSX.Element => <div>Hello</div>;\n",
-    )
+    frontend_files = {
+        "App.js": "// Vanilla JS app\nconsole.log('hello');\n",
+        "App.jsx": "// Frontend app\nconst App = () => <div>Hello</div>;\n",
+        "App.mjs": "export const greet = () => 'hello';\n",
+        "App.cjs": "module.exports = { greet() { return 'hello'; } };\n",
+        "App.ts": "export const add = (a: number, b: number): number => a + b;\n",
+        "App.tsx": "// Frontend TSX app\nexport const App = (): JSX.Element => <div>Hello</div>;\n",
+        "App.mts": "export const value: number = 1;\n",
+        "App.cts": "export const config = { mode: 'cts' };\n",
+    }
+
+    for filename, content in frontend_files.items():
+        (frontend / filename).write_text(content, encoding="utf-8")
 
     return project
 
@@ -59,14 +68,27 @@ def test_collect_app_logs_ignores_symlinks(sample_project_path: Path, tmp_path: 
     assert "service.py" in content
 
 
-def test_collect_app_logs_collects_jsx_and_tsx(sample_project_path: Path, tmp_path: Path) -> None:
+def test_collect_app_logs_collects_javascript_family(
+    sample_project_path: Path, tmp_path: Path
+) -> None:
     log_dir = tmp_path / "logs"
-    collect_app_logs(sample_project_path, log_dir, {".js", ".jsx", ".ts", ".tsx"}, [])
+    collect_app_logs(
+        sample_project_path,
+        log_dir,
+        {".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"},
+        [],
+    )
 
     frontend_log = log_dir / "frontend.txt"
     content = frontend_log.read_text(encoding="utf-8")
+    assert "App.js" in content
     assert "App.jsx" in content
+    assert "App.mjs" in content
+    assert "App.cjs" in content
+    assert "App.ts" in content
     assert "App.tsx" in content
+    assert "App.mts" in content
+    assert "App.cts" in content
 
 
 def test_consolidate_files_handles_uppercase_extensions(
@@ -183,14 +205,20 @@ def test_expand_skip_dirs_requires_string_entries() -> None:
 def test_group_source_files_by_app_returns_sorted(sample_project_path: Path) -> None:
     mapping = group_source_files_by_app(
         sample_project_path,
-        {".py", ".jsx", ".tsx"},
+        {".py", ".js", ".jsx", ".mjs", ".cjs", ".ts", ".tsx", ".mts", ".cts"},
         [],
     )
 
     assert set(mapping) == {"backend", "frontend"}
     assert mapping["backend"] == [Path("backend/service.py")]
     assert mapping["frontend"] == [
+        Path("frontend/App.cjs"),
+        Path("frontend/App.cts"),
+        Path("frontend/App.js"),
         Path("frontend/App.jsx"),
+        Path("frontend/App.mjs"),
+        Path("frontend/App.mts"),
+        Path("frontend/App.ts"),
         Path("frontend/App.tsx"),
     ]
 

@@ -290,6 +290,14 @@ class ProjectView:
         }
 
 
+# frontend/App.cjs
+module.exports = {
+  sampleGreeting() {
+    return 'hello from cjs';
+  },
+};
+
+
 # frontend/App.css
 /* Modern CSS for the Task Management System */
 .app {
@@ -590,6 +598,15 @@ class ProjectView:
   }
 }
 
+# frontend/App.cts
+export const config = { format: 'cts' };
+
+
+# frontend/App.js
+// Vanilla JS entry point
+console.log('sample project js');
+
+
 # frontend/App.jsx
 // Comprehensive React task management application demonstrating modern patterns
 import React, { useState, useEffect } from 'react';
@@ -813,6 +830,18 @@ function App() {
 }
 
 export default App;
+
+
+# frontend/App.mjs
+export const sampleGreeting = () => 'hello from mjs';
+
+
+# frontend/App.mts
+export const typedConstant: number = 42;
+
+
+# frontend/App.ts
+export const sum = (left: number, right: number): number => left + right;
 
 
 # frontend/App.tsx
