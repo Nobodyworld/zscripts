@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Support parameter injection to avoid hard-coded CLI arguments.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``single_all`` group."""

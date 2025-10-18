@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Decommission CSS wrapper once direct CLI aliases are supported.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``apps_css`` group."""

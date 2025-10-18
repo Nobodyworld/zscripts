@@ -23,6 +23,7 @@ class IgnoreMatcher:
         self._compiled: Final = compiled
         # TODO - Support gitwildmatch semantics to align with .gitignore behavior.
         # TODO - Cache translated patterns globally to reduce repeated regex compilation.
+        # TODO - Track compilation failures to surface invalid glob syntax to callers.
 
     def matches(self, path: Path | str) -> bool:
         """Return ``True`` if *path* matches any configured ignore pattern."""
@@ -32,6 +33,8 @@ class IgnoreMatcher:
         else:
             candidate = Path(path).as_posix()
 
+        # TODO - Normalise path case to better support case-insensitive filesystems.
+        # TODO - Honour negated patterns ("!") so later rules can re-include paths.
         return any(regex.match(candidate) for _, regex in self._compiled)
 
 
@@ -91,6 +94,7 @@ def expand_skip_dirs(skip_dirs: Iterable[str]) -> set[str]:
                 f"{cleaned}/*",
             }
         )
+        # TODO - Detect conflicting skip directives that shadow required directories.
     return patterns
 
 
@@ -110,6 +114,7 @@ def _normalise_user_ignore_patterns(patterns: Iterable[str]) -> set[str]:
 
         normalised.add(stripped)
     # TODO - Persist custom ignore patterns alongside generated logs for auditing.
+    # TODO - Preserve insertion order so downstream tooling can respect priority.
     return normalised
 
 
@@ -149,6 +154,7 @@ def load_gitignore_patterns(
                 stripped_line = line.strip()
                 if stripped_line and not stripped_line.startswith("#"):
                     patterns.add(stripped_line)
+    # TODO - Parse gitignore escape sequences to mirror Git's matching semantics.
     # TODO - Cache resolved ignore sets per root_path to avoid redundant disk reads.
     # TODO - Include patterns from .git/info/exclude for parity with Git defaults.
     return sorted(patterns)
@@ -158,6 +164,7 @@ def file_matches_any_pattern(file_path: Path, patterns: Iterable[str]) -> bool:
     """Return ``True`` if *file_path* matches one of *patterns*."""
 
     candidate = file_path.as_posix()
+    # TODO - Accept raw strings for parity with IgnoreMatcher.matches inputs.
     return any(fnmatch.fnmatch(candidate, pattern) for pattern in patterns)
 
 
@@ -170,9 +177,11 @@ def safe_relative_path(project_root: Path, candidate: Path) -> Path:
         return candidate_resolved.relative_to(root_resolved)
     except ValueError as exc:  # pragma: no cover - defensive guard
         raise ValueError(f"Path {candidate} escapes project root {project_root}") from exc
+    # TODO - Offer an option to allow symlinks that resolve within the project tree.
 
 
 def _normalise_extensions(extensions: Iterable[str]) -> set[str]:
+    # TODO - Validate extensions include leading dots to avoid ambiguous matches.
     return {ext.lower() for ext in extensions}
 
 
@@ -200,15 +209,18 @@ def _iter_source_files(
 
         dirs[:] = sorted(d for d in dirs if not matcher.matches(relative_root / d))
         # TODO - Allow callers to provide a custom directory sort key for stability.
+        # TODO - Provide hooks to short-circuit recursion for deeply nested trees.
 
         for file_name in sorted(files):
             file_path = root_path / file_name
             if file_path.is_symlink():
                 continue
+            # TODO - Expose a toggle for following symlinks with cycle protection.
 
             suffix = file_path.suffix.lower()
             if suffix not in extension_set:
                 continue
+            # TODO - Permit callers to pass wildcard extension filters for flexibility.
 
             try:
                 relative_file = safe_relative_path(root_resolved, file_path)
@@ -220,6 +232,7 @@ def _iter_source_files(
 
             yield relative_root, file_path, relative_file
             # TODO - Surface per-file timing metrics to help spot slow directories.
+            # TODO - Emit debug callbacks for observers to inspect traversal decisions.
 
 
 def group_source_files_by_app(
@@ -238,10 +251,12 @@ def group_source_files_by_app(
     for relative_root, _, relative_file in _iter_source_files(project_root, extensions, matcher):
         app_name = relative_root.parts[0] if relative_root.parts else "root"
         grouped.setdefault(app_name, []).append(relative_file)
+        # TODO - Allow pluggable grouping strategies for non-app-based layouts.
 
     ordered: dict[str, list[Path]] = {}
     for app_name in sorted(grouped):
         ordered[app_name] = sorted(grouped[app_name], key=_sort_key)
+    # TODO - Preserve insertion order when deterministic sorting is not required.
     return ordered
 
 
@@ -264,6 +279,7 @@ def list_matching_source_files(
         ),
         key=_sort_key,
     )
+    # TODO - Offer lazy iterators to avoid holding all paths in memory at once.
 
 
 def collect_app_logs(
@@ -304,9 +320,11 @@ def collect_app_logs(
 
             handle.write(f"# {relative_file.as_posix()}\n{content}\n\n")
             # TODO - Allow configurable separators to ease downstream parsing.
+            # TODO - Stream output to gzip files when log compression is desired.
     finally:
         for handle in handles.values():
             handle.close()
+        # TODO - Ensure file handles are flushed even if the close operation fails.
 
 
 def consolidate_files(
@@ -333,6 +351,7 @@ def consolidate_files(
                 continue
             output_file.write(f"# {relative_file.as_posix()}\n{content}\n\n")
             # TODO - Stream writes incrementally to support multi-gigabyte projects.
+            # TODO - Embed file metadata headers to aid downstream tooling analysis.
 
 
 def iter_filtered_tree_lines(
@@ -350,6 +369,7 @@ def iter_filtered_tree_lines(
     matcher = IgnoreMatcher(ignore_patterns)
     root_resolved = project_root.resolve()
     # TODO - Make max_bytes configurable per file type for more granular control.
+    # TODO - Collect traversal statistics for reporting alongside the tree snapshot.
 
     def _walk_tree(current: Path, prefix: str = "") -> Iterator[str]:
         try:
@@ -393,9 +413,11 @@ def iter_filtered_tree_lines(
                 if trimmed:
                     for line in trimmed.splitlines():
                         yield f"{prefix}│   {line}"
+                # TODO - Add elided content markers when files exceed max_bytes.
 
     yield root_resolved.as_posix()
     yield from _walk_tree(root_resolved)
+    # TODO - Append summary statistics (counts, sizes) at the end of the tree output.
 
 
 def create_filtered_tree(
@@ -417,6 +439,7 @@ def create_filtered_tree(
             max_bytes=max_bytes,
         ):
             output_file.write(f"{line}\n")
+    # TODO - Provide an option to emit ANSI colors when the tree targets terminal output.
 
 
 __all__ = [

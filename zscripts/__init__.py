@@ -2,4 +2,6 @@
 
 from .config import get_config  # re-export for convenience
 
+# TODO - Expose a richer public API surface for automation integrations.
+
 __all__ = ["get_config"]

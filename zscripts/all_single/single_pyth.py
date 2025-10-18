@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Provide typed wrapper for python consolidate to improve IDE help.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``single_python`` group."""

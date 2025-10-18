@@ -19,6 +19,8 @@ from zscripts.utils import (
     load_gitignore_patterns,
 )
 
+# TODO - Expand utility tests to cover error handling branches for robustness.
+
 
 @pytest.fixture()
 def sample_project_path(tmp_path: Path) -> Path:

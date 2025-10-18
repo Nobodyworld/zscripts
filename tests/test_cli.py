@@ -17,6 +17,8 @@ from zscripts.cli import (
 )
 from zscripts.config import get_config
 
+# TODO - Add CLI regression tests for misconfigured projects and I/O failures.
+
 
 def test_cli_collect_writes_logs(sample_project_path: Path, tmp_path: Path) -> None:
     config = get_config()

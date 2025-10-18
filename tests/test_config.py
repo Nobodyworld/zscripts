@@ -7,6 +7,8 @@ import pytest
 
 from zscripts.config import Config, get_config, get_file_group_resolver, load_config, resolve_paths
 
+# TODO - Add configuration tests for environment overrides and nested directories.
+
 
 def test_config_loading_returns_expected_types() -> None:
     config = get_config()

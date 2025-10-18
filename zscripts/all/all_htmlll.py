@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from zscripts.cli import main as cli_main
 
+# TODO - Collapse HTML wrapper into a shared parametrised launcher helper.
+
 
 def main() -> int:
     """Delegate to the shared CLI for the ``apps_html`` group."""

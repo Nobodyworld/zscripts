@@ -130,6 +130,7 @@ def _build_single_targets(config: Config, base_dir: Path | None = None) -> dict[
 
 
 def _augment_ignore_patterns(project_root: Path, config: Config) -> list[str]:
+    # TODO - Cache augmented pattern sets for repeated CLI command invocations.
     return load_gitignore_patterns(
         project_root,
         skip_dirs=config.skip,
@@ -147,6 +148,7 @@ def _resolve_project_root(raw_root: str, *, sample: bool) -> Path:
     resolved = project_root.resolve()
     if not resolved.exists():
         raise FileNotFoundError(f"Project root does not exist: {resolved}")
+    # TODO - Detect repository root automatically when project_root is omitted.
     return resolved
 
 
@@ -163,6 +165,7 @@ def collect_command(args: argparse.Namespace) -> None:
     type_names = _parse_type_list(types_arg, allowed=COLLECT_TYPE_EXTENSIONS)
     if not type_names:
         type_names = ("python",)
+        # TODO - Emit a warning when fallbacks override an empty --types argument.
 
     project_root = _resolve_project_root(project_root_arg, sample=sample_flag)
     output_base = Path(output_dir_arg).expanduser().resolve() if output_dir_arg else None
@@ -178,6 +181,7 @@ def collect_command(args: argparse.Namespace) -> None:
     print(f"Output directory: {base_output_dir}")
     if dry_run:
         print("Dry run enabled: no files will be written.\n")
+        # TODO - Provide JSON output for dry-run details to enable scripting hooks.
 
     for type_name in type_names:
         log_dir = log_paths[type_name]
@@ -196,9 +200,11 @@ def collect_command(args: argparse.Namespace) -> None:
                     print(f"  - [{app_name}]")
                     for relative_path in files:
                         print(f"    {relative_path.as_posix()}")
+                        # TODO - Show file size metadata to estimate log volume upfront.
             continue
 
         log_dir.mkdir(parents=True, exist_ok=True)
+        # TODO - Reset target directories when stale files from previous runs are detected.
         collect_app_logs(
             project_root,
             log_dir,
@@ -238,6 +244,7 @@ def consolidate_command(args: argparse.Namespace) -> None:
 
     # TODO - Accept stdout target ("-") for piping consolidated content.
     output_path = Path(output_arg).expanduser().resolve() if output_arg else targets[type_name]
+    # TODO - Warn when output_path resides outside of the configured log directory.
     ignore_patterns = _augment_ignore_patterns(project_root, config)
     if dry_run:
         planned = list_matching_source_files(
@@ -251,9 +258,11 @@ def consolidate_command(args: argparse.Namespace) -> None:
             print(f"  - {relative_path.as_posix()}")
         if not planned:
             print("  (no matching files found)")
+        # TODO - Return a non-zero exit code when dry-run detects unresolved issues.
         return
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    # TODO - Clean up orphaned directories when consolidation is interrupted mid-run.
     consolidate_files(
         project_root,
         output_path,
@@ -262,6 +271,7 @@ def consolidate_command(args: argparse.Namespace) -> None:
     )
     LOGGER.info("event=consolidate_completed type=%s output=%s", type_name, output_path)
     print(f"✓ Consolidated {type_name} sources into {output_path}")
+    # TODO - Offer to open the generated log automatically when running interactively.
 
 
 def tree_command(args: argparse.Namespace) -> None:
@@ -285,6 +295,7 @@ def tree_command(args: argparse.Namespace) -> None:
     else:
         default_base = next(iter(_build_log_paths(config).values())).parent
         output_path = default_base / "project_tree.txt"
+    # TODO - Validate that output_path is writable before starting the traversal.
 
     ignore_patterns = _augment_ignore_patterns(project_root, config)
     # TODO - Allow include/exclude filters to be provided at runtime for tree snapshots.
@@ -298,9 +309,11 @@ def tree_command(args: argparse.Namespace) -> None:
             include_content=include_contents,
         ):
             print(line)
+        # TODO - Display a summary of ignored paths during dry-run previews.
         return
 
     output_path.parent.mkdir(parents=True, exist_ok=True)
+    # TODO - Allow writing to stdout when output_path equals '-' sentinel value.
     create_filtered_tree(
         project_root,
         output_path,
@@ -309,6 +322,7 @@ def tree_command(args: argparse.Namespace) -> None:
     )
     LOGGER.info("event=tree_completed output=%s", output_path)
     print(f"✓ Wrote project tree to {output_path}")
+    # TODO - Provide guidance for piping output directly to stdout for scripting.
 
 
 def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
@@ -347,6 +361,7 @@ def _add_shared_arguments(subparser: argparse.ArgumentParser) -> None:
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="CLI front-end for zscripts utilities")
     subparsers = parser.add_subparsers(dest="command", required=True)
+    # TODO - Auto-register commands via entry points to support external plugins.
 
     collect_parser = subparsers.add_parser(
         "collect", help="Generate per-app logs for selected stacks"
@@ -357,6 +372,7 @@ def build_parser() -> argparse.ArgumentParser:
         default="python",
         help="Comma separated list of stacks to capture (choices: python, html, css, js, python_html, all)",
     )
+    # TODO - Provide shell completion scripts for --types argument values.
     collect_parser.set_defaults(func=collect_command)
 
     consolidate_parser = subparsers.add_parser(
@@ -373,6 +389,7 @@ def build_parser() -> argparse.ArgumentParser:
         help="Optional custom output path for the consolidated log",
     )
     # TODO - Support --append flag to accumulate new snapshots instead of overwriting.
+    # TODO - Add --encoding option for writing logs with alternative character sets.
     consolidate_parser.set_defaults(func=consolidate_command)
 
     tree_parser = subparsers.add_parser(
@@ -388,6 +405,7 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Include file contents in the tree output",
     )
+    # TODO - Add --max-bytes CLI argument to align with iter_filtered_tree_lines.
     tree_parser.set_defaults(func=tree_command)
 
     return parser
@@ -402,6 +420,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     # TODO - Switch to structured logging to ease downstream ingestion.
     logging.basicConfig(level=log_level, format="%(levelname)s %(name)s %(message)s")
     logging.getLogger().setLevel(log_level)
+    # TODO - Allow configuring log destinations (file/syslog) via CLI flags.
 
     command = cast(str, getattr(args, "command", ""))
     handler: Callable[[argparse.Namespace], None] | None = getattr(args, "func", None)
